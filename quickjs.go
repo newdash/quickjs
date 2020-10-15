@@ -302,7 +302,13 @@ func (ctx *Context) ToValue(value interface{}) Value {
 	if value == nil {
 		return ctx.Null()
 	}
+
 	reflectValue := reflect.ValueOf(value)
+	reflectType := reflectValue.Type()
+	if reflectType == reflect.TypeOf(Value{}) {
+		return value.(Value)
+	}
+
 	switch reflectValue.Kind() {
 	case reflect.String:
 		return ctx.String(reflectValue.String())
@@ -327,7 +333,6 @@ func (ctx *Context) ToValue(value interface{}) Value {
 		return obj
 	case reflect.Struct:
 		obj := ctx.Object()
-		reflectType := reflectValue.Type()
 		for fIndex := 0; fIndex < reflectValue.NumField(); fIndex++ {
 			fieldName := reflectType.Field(fIndex).Name
 			field := reflectValue.Field(fIndex)
@@ -338,11 +343,14 @@ func (ctx *Context) ToValue(value interface{}) Value {
 		obj := ctx.Array()
 		for arrayItemIndex := 0; arrayItemIndex < reflectValue.Len(); arrayItemIndex++ {
 			arrayItem := reflectValue.Index(arrayItemIndex)
-			obj.SetByInt64(int64(arrayItemIndex), ctx.ToValue(arrayItem.Interface()))
+			arrayItemValue := ctx.ToValue(arrayItem.Interface())
+			obj.SetByInt64(int64(arrayItemIndex), arrayItemValue)
 		}
 		return obj
 	case reflect.Func:
-		// TO DO
+		return ctx.Function(func(ctx *Context, this Value, jsArgs []Value) Value {
+			return ctx.ThrowError(fmt.Errorf("not support call golang function directly"))
+		})
 	default:
 		// ignore
 	}
@@ -389,6 +397,18 @@ func (v Value) String() string {
 	ptr := C.JS_ToCString(v.ctx.ref, v.ref)
 	defer C.JS_FreeCString(v.ctx.ref, ptr)
 	return C.GoString(ptr)
+}
+
+// Call object
+func (v Value) Call(thisArg Value, args ...Value) Value {
+	var jsArgs []C.JSValue
+	for _, goArg := range args {
+		jsArgs = append(jsArgs, goArg.ref)
+	}
+	return Value{
+		ctx: v.ctx,
+		ref: C.JS_Call(v.ctx.ref, v.ref, thisArg.ref, C.int(len(args)), &jsArgs[0]),
+	}
 }
 
 func (v Value) Int64() int64 {
@@ -471,6 +491,25 @@ func (v Value) Set(name string, val Value) {
 	C.JS_SetPropertyStr(v.ctx.ref, v.ref, namePtr, val.ref)
 }
 
+// HasProperty with name
+func (v Value) HasProperty(name string) bool {
+	namePtr := C.CString(name)
+	defer C.free(unsafe.Pointer(namePtr))
+	rt := C.JS_HasProperty(v.ctx.ref, v.ref, C.JS_NewAtom(v.ctx.ref, namePtr))
+	rt1 := int(rt)
+	if rt1 == 1 {
+		return true
+	}
+	return false
+}
+
+// DeleteProperty property
+func (v Value) DeleteProperty(name string) {
+	namePtr := C.CString(name)
+	defer C.free(unsafe.Pointer(namePtr))
+	C.JS_DeleteProperty(v.ctx.ref, v.ref, C.JS_NewAtom(v.ctx.ref, namePtr), C.int(0))
+}
+
 func (v Value) SetFunction(name string, fn Function) {
 	v.Set(name, v.ctx.Function(fn))
 }
@@ -535,6 +574,25 @@ func (v Value) Interface() interface{} {
 			return v.BigFloat()
 		}
 		return v.Float64()
+	}
+	if v.IsString() {
+		return v.String()
+	}
+	if v.IsUndefined() || v.IsNull() {
+		return nil
+	}
+	if v.IsBool() {
+		return v.Bool()
+	}
+	if v.IsError() {
+		return v.Error()
+	}
+
+	if v.IsArray() {
+		// TO DO
+	}
+	if v.IsObject() {
+		// TO DO
 	}
 
 	return nil

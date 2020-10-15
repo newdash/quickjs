@@ -184,6 +184,7 @@ func TestContext_CreateObjectWithPrimitive(t *testing.T) {
 	assert.True(v.IsNumber())
 	v = ctx.CreateObjectWith(1.1)
 	assert.True(v.IsNumber())
+	assert.Equal(1.1, v.Float64())
 	v = ctx.CreateObjectWith(true)
 	assert.True(v.IsBool())
 	v = ctx.CreateObjectWith(nil)
@@ -225,4 +226,28 @@ func TestContext_CreateObjectWithStruct(t *testing.T) {
 	assert.Equal(int64(1), v.Get("A").Int64())
 	assert.Equal("2", v.Get("V").String())
 
+}
+
+func TestContext_CallFunction(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.Free()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	f := ctx.Function(func(ctx *Context, this Value, args []Value) Value {
+		return args[0]
+	})
+	ctx.Globals().Set("f", f)
+	assert.True(ctx.Globals().HasProperty("f"))
+	arg0 := ctx.ToValue(4444)
+	result := f.Call(ctx.Null(), arg0)
+	assert.False(result.IsError())
+	assert.Equal(float64(4444), result.Interface())
+
+	ctx.Globals().DeleteProperty("f")
+
+	arg0.Free()
+	result.Free()
+	r.RunGC()
 }
