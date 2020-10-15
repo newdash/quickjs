@@ -1,7 +1,6 @@
 # quickjs
 
 ![github ci](https://github.com/newdash/quickjs/workflows/github%20ci/badge.svg)
-[![MIT License](https://img.shields.io/apm/l/atomic-design-ui.svg?)](LICENSE)
 
 Go bindings to [QuickJS](https://bellard.org/quickjs/): a fast, small, and embeddable [ES2020](https://tc39.github.io/ecma262/) JavaScript interpreter.
 
