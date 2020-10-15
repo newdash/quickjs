@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -292,8 +293,64 @@ func (ctx *Context) Exception() error {
 	return val.Error()
 }
 
+// Object create new JSObject
 func (ctx *Context) Object() Value {
 	return Value{ctx: ctx, ref: C.JS_NewObject(ctx.ref)}
+}
+
+func (ctx *Context) ToValue(value interface{}) Value {
+	if value == nil {
+		return ctx.Null()
+	}
+	reflectValue := reflect.ValueOf(value)
+	switch reflectValue.Kind() {
+	case reflect.String:
+		return ctx.String(reflectValue.String())
+	case reflect.Int8, reflect.Int, reflect.Int16, reflect.Int32:
+		return ctx.Int32(int32(reflectValue.Int()))
+	case reflect.Int64:
+		return ctx.Int64(reflectValue.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+		return ctx.Uint32(uint32(reflectValue.Uint()))
+	case reflect.Uint64:
+		return ctx.BigUint64(reflectValue.Uint())
+	case reflect.Float32, reflect.Float64:
+		return ctx.Float64(reflectValue.Float())
+	case reflect.Bool:
+		return ctx.Bool(reflectValue.Bool())
+	case reflect.Map:
+		obj := ctx.Object()
+		for _, key := range reflectValue.MapKeys() {
+			innerValue := reflectValue.MapIndex(key)
+			obj.Set(key.String(), ctx.ToValue(innerValue.Interface()))
+		}
+		return obj
+	case reflect.Struct:
+		obj := ctx.Object()
+		reflectType := reflectValue.Type()
+		for fIndex := 0; fIndex < reflectValue.NumField(); fIndex++ {
+			fieldName := reflectType.Field(fIndex).Name
+			field := reflectValue.Field(fIndex)
+			obj.Set(fieldName, ctx.ToValue(field.Interface()))
+		}
+		return obj
+	case reflect.Slice:
+		obj := ctx.Array()
+		for arrayItemIndex := 0; arrayItemIndex < reflectValue.Len(); arrayItemIndex++ {
+			arrayItem := reflectValue.Index(arrayItemIndex)
+			obj.SetByInt64(int64(arrayItemIndex), ctx.ToValue(arrayItem.Interface()))
+		}
+		return obj
+	case reflect.Func:
+		// TO DO
+	default:
+		// ignore
+	}
+	return ctx.Undefined()
+}
+
+func (ctx *Context) CreateObjectWith(value interface{}) Value {
+	return ctx.ToValue(value)
 }
 
 func (ctx *Context) Array() Value {
@@ -464,6 +521,24 @@ type PropertyEnum struct {
 }
 
 func (p PropertyEnum) String() string { return p.Atom.String() }
+
+func (v Value) Interface() interface{} {
+
+	if v.IsNumber() {
+		if v.IsBigInt() {
+			return v.BigInt()
+		}
+		if v.IsBigFloat() {
+			return v.BigFloat()
+		}
+		if v.IsBigDecimal() {
+			return v.BigFloat()
+		}
+		return v.Float64()
+	}
+
+	return nil
+}
 
 func (v Value) PropertyNames() ([]PropertyEnum, error) {
 	var (

@@ -3,6 +3,7 @@ package quickjs
 import (
 	"errors"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	stdruntime "runtime"
 	"sync"
@@ -170,4 +171,58 @@ func TestConcurrency(t *testing.T) {
 	for i := 0; i < m; i++ {
 		<-res
 	}
+}
+
+func TestContext_CreateObjectWithPrimitive(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.Free()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	v := ctx.CreateObjectWith(1)
+	assert.True(v.IsNumber())
+	v = ctx.CreateObjectWith(1.1)
+	assert.True(v.IsNumber())
+	v = ctx.CreateObjectWith(true)
+	assert.True(v.IsBool())
+	v = ctx.CreateObjectWith(nil)
+	assert.True(v.IsNull())
+	v = ctx.CreateObjectWith("hello")
+	assert.True(v.IsString())
+	r.RunGC()
+}
+
+func TestContext_CreateObjectWithMap(t *testing.T) {
+	assert := assert.New(t)
+	r := NewRuntime()
+	defer r.Free()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	v := ctx.CreateObjectWith(map[string]interface{}{"a": 1, "V": 2})
+	defer v.Free()
+	assert.True(v.IsObject())
+	assert.True(v.Get("a").IsNumber())
+	assert.Equal(int64(2), v.Get("V").Int64())
+}
+
+type TestStruct struct {
+	A int
+	V string
+}
+
+func TestContext_CreateObjectWithStruct(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.Free()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	v := ctx.CreateObjectWith(TestStruct{1, "2"})
+	defer v.Free()
+	assert.True(v.IsObject())
+	assert.True(v.Get("A").IsNumber())
+	assert.Equal(int64(1), v.Get("A").Int64())
+	assert.Equal("2", v.Get("V").String())
+
 }
