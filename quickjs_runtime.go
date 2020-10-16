@@ -2,7 +2,6 @@ package quickjs
 
 import (
 	"io"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -38,20 +37,12 @@ func (r Runtime) Free() { C.JS_FreeRuntime(r.ref) }
 
 // SetMaxStackSize of Runtime
 func (r Runtime) SetMaxStackSize(stackSize int64) {
-	if runtime.GOOS == "windows" {
-		C.JS_SetMaxStackSize(r.ref, C.ulonglong(stackSize))
-	} else {
-		C.JS_SetMaxStackSize(r.ref, C.ulong(stackSize))
-	}
+	C.JS_SetMaxStackSize(r.ref, C.size_t(stackSize))
 }
 
 // SetMemoryLimit of Runtime
 func (r Runtime) SetMemoryLimit(limit int64) {
-	if runtime.GOOS == "windows" {
-		C.JS_SetMemoryLimit(r.ref, C.ulonglong(limit))
-	} else {
-		C.JS_SetMemoryLimit(r.ref, C.ulong(limit))
-	}
+	C.JS_SetMemoryLimit(r.ref, C.size_t(limit))
 }
 
 // NewContext for quickjs
