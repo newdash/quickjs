@@ -199,10 +199,12 @@ type PropertyEnum struct {
 
 func (p PropertyEnum) String() string { return p.Atom.String() }
 
+// Decode js Value to golang struct
 func (v Value) Decode(target interface{}) {
 	mapstructure.Decode(v.Interface(), target)
 }
 
+// Interface return golang value with correct type (with interface{} any type)
 func (v Value) Interface() interface{} {
 	if v.IsNumber() {
 		if v.IsBigInt() {
@@ -252,6 +254,18 @@ func (v Value) Interface() interface{} {
 	}
 
 	return nil
+}
+
+func (v Value) ToJsonString() string {
+	undefined := v.ctx.Undefined()
+	defer undefined.Free()
+
+	jsonStr := Value{
+		ref: C.JS_JSONStringify(v.ctx.ref, v.ref, undefined.ref, undefined.ref),
+		ctx: v.ctx,
+	}
+	defer jsonStr.Free()
+	return jsonStr.String()
 }
 
 // PropertyNames of object, includes prototype

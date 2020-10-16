@@ -255,6 +255,15 @@ func (ctx *Context) ToJSValue(value interface{}) Value {
 	return ctx.Undefined()
 }
 
+// ParseJson parse Value from JSON string
+func (ctx *Context) ParseJson(jsonStr string) Value {
+	undefined := ctx.Undefined()
+	defer undefined.Free()
+	jsJsonString := ctx.ToJSValue(jsonStr)
+	defer jsJsonString.Free()
+	return ctx.Globals().Get("JSON").Get("parse").Call(undefined, jsJsonString)
+}
+
 func (ctx *Context) CreateObjectWith(value interface{}) Value {
 	return ctx.ToJSValue(value)
 }
