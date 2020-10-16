@@ -194,6 +194,44 @@ func TestContext_CreateObjectWithPrimitive(t *testing.T) {
 	r.RunGC()
 }
 
+func TestContext_GlobalsGet(t *testing.T) {
+	assert := assert.New(t)
+	r := NewRuntime()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	global := ctx.Globals()
+	globalObject := global.Get("Object")
+	assert.True(globalObject.IsObject())
+	globalObjectKey := globalObject.Get("keys")
+	assert.True(globalObjectKey.IsFunction())
+	result := globalObjectKey.Call(ctx.Null(), ctx.ToJSValue(map[string]string{"a": "v"}))
+	defer result.Free()
+	assert.True(result.IsArray())
+	assert.Equal(int64(1), result.Len())
+	assert.Equal([]interface{}{"a"}, result.Interface())
+}
+
+func TestValue_PropertyNames(t *testing.T) {
+	assert := assert.New(t)
+	r := NewRuntime()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	_, err := ctx.Eval("class A { constructor() { this.a = 1 } };")
+	assert.Nil(err)
+	_, err = ctx.Eval("class B extends A { constructor() { super(); this.b = 1 } }; ")
+	assert.Nil(err)
+	v, err := ctx.Eval("new B()")
+	assert.Nil(err)
+	assert.True(v.IsObject())
+	names, err := v.PropertyNames()
+	assert.Nil(err)
+	assert.Equal(int(2), len(names))
+	assert.Equal("a", names[0].String())
+
+}
+
 func TestContext_CreateObjectWithMap(t *testing.T) {
 	assert := assert.New(t)
 	r := NewRuntime()
@@ -240,14 +278,113 @@ func TestContext_CallFunction(t *testing.T) {
 	})
 	ctx.Globals().Set("f", f)
 	assert.True(ctx.Globals().HasProperty("f"))
-	arg0 := ctx.ToValue(4444)
+	arg0 := ctx.ToJSValue(4444)
 	result := f.Call(ctx.Null(), arg0)
 	assert.False(result.IsError())
-	assert.Equal(float64(4444), result.Interface())
+	assert.Equal(int64(4444), result.Interface())
 
 	ctx.Globals().DeleteProperty("f")
 
 	arg0.Free()
 	result.Free()
 	r.RunGC()
+}
+
+func TestValue_InterfaceNumber(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.Free()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	v, err := ctx.Eval("1")
+	defer v.Free()
+	assert.Nil(err)
+	assert.True(v.IsNumber())
+	assert.True(v.IsIntNumber())
+	assert.False(v.IsFloat64Number())
+	v2, err2 := ctx.Eval("1.1")
+	defer v2.Free()
+	assert.Nil(err2)
+	assert.Nil(err)
+	assert.True(v2.IsNumber())
+	assert.False(v2.IsIntNumber())
+	assert.True(v2.IsFloat64Number())
+
+	goV := ctx.Int64(123)
+	defer goV.Free()
+	assert.True(goV.IsNumber())
+	assert.True(goV.IsIntNumber())
+	assert.False(goV.IsFloat64Number())
+}
+
+func TestValue_InterfaceArray(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.Free()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	v, err := ctx.Eval("[1,2,3,4.3]")
+	defer v.Free()
+	assert.Nil(err)
+	assert.Equal([]interface{}{int64(1), int64(2), int64(3), 4.3}, v.Interface())
+	assert.Equal(int64(4), v.Len())
+}
+
+func TestContext_EvalJson(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	v, err := ctx.Eval("JSON.stringify({a:1,b:2,c:[1,2]})")
+	assert.Nil(err)
+	assert.True(v.IsString())
+	assert.Equal(`{"a":1,"b":2,"c":[1,2]}`, v.String())
+}
+
+func TestValue_InterfaceObject(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	v := ctx.ToJSValue(map[string]interface{}{"a": map[string]interface{}{"b": int64(1)}})
+	assert.True(v.IsObject())
+	assert.Equal(map[string]interface{}{"a": map[string]interface{}{"b": int64(1)}}, v.Interface())
+
+	v2, err := ctx.Eval("var object = {a:{b:1}};object")
+	assert.Nil(err)
+	assert.True(v2.IsObject())
+	assert.Equal(map[string]interface{}{"a": map[string]interface{}{"b": int64(1)}}, v2.Interface())
+
+}
+
+type DecodeStructA struct {
+	B int
+}
+type DecodeStructBase struct {
+	A DecodeStructA
+}
+
+func TestValue_Decode(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	v2, err := ctx.Eval("var object = {a:{b:1}};object")
+	defer v2.Free()
+	assert.Nil(err)
+	assert.True(v2.IsObject())
+	structA := &DecodeStructBase{}
+	v2.Decode(structA)
+	assert.Equal(1, structA.A.B)
+
 }

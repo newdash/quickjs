@@ -12,3 +12,15 @@ static JSValue ThrowTypeError(JSContext *ctx, const char *fmt) { return JS_Throw
 static JSValue ThrowReferenceError(JSContext *ctx, const char *fmt) { return JS_ThrowReferenceError(ctx, "%s", fmt); }
 static JSValue ThrowRangeError(JSContext *ctx, const char *fmt) { return JS_ThrowRangeError(ctx, "%s", fmt); }
 static JSValue ThrowInternalError(JSContext *ctx, const char *fmt) { return JS_ThrowInternalError(ctx, "%s", fmt); }
+
+static JS_BOOL JS_IsIntNumber(JSValueConst v)
+{
+    int tag = JS_VALUE_GET_TAG(v);
+    return tag == JS_TAG_INT;
+}
+
+static JS_BOOL JS_IsFloat64Number(JSValueConst v)
+{
+    int tag = JS_VALUE_GET_TAG(v);
+    return JS_TAG_IS_FLOAT64(tag);
+}
