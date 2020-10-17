@@ -54,7 +54,9 @@ func (r Runtime) NewContext() *Context {
 	C.JS_AddIntrinsicOperators(ref)
 	C.JS_EnableBignumExt(ref, C.int(1))
 
-	return &Context{ref: ref}
+	ctx := &Context{ref: ref}
+
+	return ctx
 }
 
 func (r Runtime) ExecutePendingJob() (Context, error) {
@@ -71,11 +73,12 @@ func (r Runtime) ExecutePendingJob() (Context, error) {
 	return ctx, nil
 }
 
-type Function func(ctx *Context, this Value, args []Value) Value
+// JSFunction proxy
+type JSFunction func(ctx *Context, this Value, args []Value) Value
 
 type funcEntry struct {
 	ctx *Context
-	fn  Function
+	fn  JSFunction
 }
 
 var funcPtrLen int64

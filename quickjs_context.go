@@ -32,7 +32,7 @@ func (ctx *Context) Free() {
 	C.JS_FreeContext(ctx.ref)
 }
 
-func (ctx *Context) Function(fn Function) Value {
+func (ctx *Context) Function(fn JSFunction) Value {
 	val := ctx.eval(`(proxy, id) => function() { return proxy.call(this, id, ...arguments); }`)
 	if val.IsException() {
 		return val
@@ -261,7 +261,7 @@ func (ctx *Context) ParseJson(jsonStr string) Value {
 	defer undefined.Free()
 	jsJsonString := ctx.ToJSValue(jsonStr)
 	defer jsJsonString.Free()
-	return ctx.Globals().Get("JSON").Get("parse").Call(undefined, jsJsonString)
+	return ctx.Globals().Get("JSON").Get("parse").CallWithContext(undefined, jsJsonString)
 }
 
 func (ctx *Context) CreateObjectWith(value interface{}) Value {

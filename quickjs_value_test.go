@@ -12,10 +12,10 @@ func TestValue_ToJSONString(t *testing.T) {
 	ctx := r.NewContext()
 	defer ctx.Free()
 
-	v := ctx.ToJSValue(map[string]string{"a": "1"})
+	v := ctx.ToJSValue(map[string]string{"attachTimerTo": "1"})
 	defer v.Free()
 	assert.True(v.IsObject())
-	assert.Equal(`{"a":"1"}`, v.ToJsonString())
+	assert.Equal(`{"attachTimerTo":"1"}`, v.ToJsonString())
 
 }
 
@@ -32,7 +32,7 @@ func TestContext_CallFunction(t *testing.T) {
 	ctx.Globals().Set("f", f)
 	assert.True(ctx.Globals().HasProperty("f"))
 	arg0 := ctx.ToJSValue(4444)
-	result := f.Call(ctx.Null(), arg0)
+	result := f.CallWithContext(ctx.Null(), arg0)
 	assert.False(result.IsError())
 	assert.Equal(int64(4444), result.Interface())
 
@@ -41,6 +41,54 @@ func TestContext_CallFunction(t *testing.T) {
 	arg0.Free()
 	result.Free()
 	r.RunGC()
+}
+func TestContext_CallFunctionWithoutArgs(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	f := ctx.Function(func(ctx *Context, this Value, args []Value) Value {
+		return ctx.Int64(1234)
+	})
+	ctx.Globals().Set("f", f)
+	result, err := ctx.Eval("f()")
+	assert.Nil(err)
+	assert.Equal(int64(1234), result.Int64())
+
+	result = f.Call()
+	assert.Equal(int64(1234), result.Int64())
+}
+
+func TestContext_VerifyFunctionArgs(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	f := ctx.Function(func(ctx *Context, this Value, args []Value) Value {
+		return ctx.ToJSValue(
+			map[string]interface{}{
+				"args":   args,
+				"length": len(args),
+			},
+		)
+	})
+	ctx.Globals().Set("f", f)
+	assert.True(ctx.Globals().HasProperty("f"))
+	result, err := ctx.Eval("f(1234,2345)")
+	assert.Nil(err)
+	assert.Equal(int64(2), result.Get("length").Int64())
+	assert.Equal(int64(1234), result.Get("args").GetByUint32(0).Int64())
+	assert.Equal(int64(2345), result.Get("args").GetByUint32(1).Int64())
+
+	result = f.Call(ctx.Int64(1234), ctx.Int64(2345))
+	assert.Equal(int64(2), result.Get("length").Int64())
+	assert.Equal(int64(1234), result.Get("args").GetByUint32(0).Int64())
+	assert.Equal(int64(2345), result.Get("args").GetByUint32(1).Int64())
+
 }
 
 func TestValue_InterfaceNumber(t *testing.T) {
@@ -94,8 +142,24 @@ func TestContext_EvalJson(t *testing.T) {
 	defer r.RunGC()
 	ctx := r.NewContext()
 	defer ctx.Free()
-	v, err := ctx.Eval("JSON.stringify({a:1,b:2,c:[1,2]})")
+	v, err := ctx.Eval("JSON.stringify({attachTimerTo:1,b:2,c:[1,2]})")
 	assert.Nil(err)
 	assert.True(v.IsString())
-	assert.Equal(`{"a":1,"b":2,"c":[1,2]}`, v.String())
+	assert.Equal(`{"attachTimerTo":1,"b":2,"c":[1,2]}`, v.String())
+}
+
+func TestValue_StringWithChinese(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	v := ctx.String("中文")
+	defer v.Free()
+	assert.Equal("中文", v.String())
+	ctx.Eval(`function fString() {return "中文"}`)
+	jsFunctionFString := ctx.Globals().Get("fString")
+	assert.True(jsFunctionFString.IsFunction())
+	assert.Equal("中文", jsFunctionFString.Call().String())
 }

@@ -35,16 +35,30 @@ func (v Value) String() string {
 	return C.GoString(ptr)
 }
 
-// Call object
-func (v Value) Call(thisArg Value, args ...Value) Value {
-	var jsArgs []C.JSValue
-	for _, goArg := range args {
-		jsArgs = append(jsArgs, goArg.ref)
+// call function
+func (v Value) Call(args ...Value) Value {
+	return v.CallWithContext(v.ctx.Undefined(), args...)
+}
+
+// CallWithContext call function with this parameter
+func (v Value) CallWithContext(thisArg Value, args ...Value) Value {
+	if len(args) > 0 {
+		var jsArgs []C.JSValue
+		for _, goArg := range args {
+			jsArgs = append(jsArgs, goArg.ref)
+		}
+
+		return Value{
+			ctx: v.ctx,
+			ref: C.JS_Call(v.ctx.ref, v.ref, thisArg.ref, C.int(len(args)), &jsArgs[0]),
+		}
 	}
+
 	return Value{
 		ctx: v.ctx,
-		ref: C.JS_Call(v.ctx.ref, v.ref, thisArg.ref, C.int(len(args)), &jsArgs[0]),
+		ref: C.JS_Call(v.ctx.ref, v.ref, thisArg.ref, C.int(len(args)), nil),
 	}
+
 }
 
 func (v Value) Int64() int64 {
@@ -146,7 +160,7 @@ func (v Value) DeleteProperty(name string) {
 	C.JS_DeleteProperty(v.ctx.ref, v.ref, C.JS_NewAtom(v.ctx.ref, namePtr), C.int(0))
 }
 
-func (v Value) SetFunction(name string, fn Function) {
+func (v Value) SetFunction(name string, fn JSFunction) {
 	v.Set(name, v.ctx.Function(fn))
 }
 
@@ -254,6 +268,45 @@ func (v Value) Interface() interface{} {
 	}
 
 	return nil
+}
+
+type JsType = string
+
+const (
+	JsTypeString    JsType = "string"
+	JsTypeNumber    JsType = "number"
+	JsTypeObject    JsType = "object"
+	JsTypeSymbol    JsType = "symbol"
+	JsTypeUndefined JsType = "undefined"
+	JsTypeBigInt    JsType = "bigint"
+	JsTypeFunction  JsType = "function"
+	JsTypeBoolean   JsType = "boolean"
+)
+
+// TypeOf current value, same as the `typeof` keyword in js
+func (v Value) TypeOf() JsType {
+	if v.IsNull() {
+		return JsTypeObject
+	}
+	if v.IsFunction() {
+		return JsTypeFunction
+	}
+	if v.IsNumber() {
+		if v.IsBigInt() {
+			return JsTypeBigInt
+		}
+		return JsTypeNumber
+	}
+	if v.IsBool() {
+		return JsTypeBoolean
+	}
+	if v.IsString() {
+		return JsTypeString
+	}
+	if v.IsObject() {
+		return JsTypeObject
+	}
+	return JsTypeUndefined
 }
 
 func (v Value) ToJsonString() string {

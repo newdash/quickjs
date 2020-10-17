@@ -3,11 +3,12 @@ package quickjs
 import (
 	"errors"
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	stdruntime "runtime"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestObject(t *testing.T) {
@@ -205,11 +206,11 @@ func TestContext_GlobalsGet(t *testing.T) {
 	assert.True(globalObject.IsObject())
 	globalObjectKey := globalObject.Get("keys")
 	assert.True(globalObjectKey.IsFunction())
-	result := globalObjectKey.Call(ctx.Null(), ctx.ToJSValue(map[string]string{"a": "v"}))
+	result := globalObjectKey.CallWithContext(ctx.Null(), ctx.ToJSValue(map[string]string{"attachTimerTo": "v"}))
 	defer result.Free()
 	assert.True(result.IsArray())
 	assert.Equal(int64(1), result.Len())
-	assert.Equal([]interface{}{"a"}, result.Interface())
+	assert.Equal([]interface{}{"attachTimerTo"}, result.Interface())
 }
 
 func TestValue_PropertyNames(t *testing.T) {
@@ -218,7 +219,7 @@ func TestValue_PropertyNames(t *testing.T) {
 	defer r.RunGC()
 	ctx := r.NewContext()
 	defer ctx.Free()
-	_, err := ctx.Eval("class A { constructor() { this.a = 1 } };")
+	_, err := ctx.Eval("class A { constructor() { this.attachTimerTo = 1 } };")
 	assert.Nil(err)
 	_, err = ctx.Eval("class B extends A { constructor() { super(); this.b = 1 } }; ")
 	assert.Nil(err)
@@ -228,7 +229,7 @@ func TestValue_PropertyNames(t *testing.T) {
 	names, err := v.PropertyNames()
 	assert.Nil(err)
 	assert.Equal(int(2), len(names))
-	assert.Equal("a", names[0].String())
+	assert.Equal("attachTimerTo", names[0].String())
 
 }
 
@@ -239,14 +240,14 @@ func TestValue_InterfaceObject(t *testing.T) {
 	defer r.RunGC()
 	ctx := r.NewContext()
 	defer ctx.Free()
-	v := ctx.ToJSValue(map[string]interface{}{"a": map[string]interface{}{"b": int64(1)}})
+	v := ctx.ToJSValue(map[string]interface{}{"attachTimerTo": map[string]interface{}{"b": int64(1)}})
 	assert.True(v.IsObject())
-	assert.Equal(map[string]interface{}{"a": map[string]interface{}{"b": int64(1)}}, v.Interface())
+	assert.Equal(map[string]interface{}{"attachTimerTo": map[string]interface{}{"b": int64(1)}}, v.Interface())
 
-	v2, err := ctx.Eval("var object = {a:{b:1}};object")
+	v2, err := ctx.Eval("var object = {attachTimerTo:{b:1}};object")
 	assert.Nil(err)
 	assert.True(v2.IsObject())
-	assert.Equal(map[string]interface{}{"a": map[string]interface{}{"b": int64(1)}}, v2.Interface())
+	assert.Equal(map[string]interface{}{"attachTimerTo": map[string]interface{}{"b": int64(1)}}, v2.Interface())
 
 }
 

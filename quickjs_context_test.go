@@ -11,10 +11,10 @@ func TestContext_CreateObjectWithMap(t *testing.T) {
 	defer r.Free()
 	ctx := r.NewContext()
 	defer ctx.Free()
-	v := ctx.CreateObjectWith(map[string]interface{}{"a": 1, "V": 2})
+	v := ctx.CreateObjectWith(map[string]interface{}{"attachTimerTo": 1, "V": 2})
 	defer v.Free()
 	assert.True(v.IsObject())
-	assert.True(v.Get("a").IsNumber())
+	assert.True(v.Get("attachTimerTo").IsNumber())
 	assert.Equal(int64(2), v.Get("V").Int64())
 }
 
@@ -46,9 +46,9 @@ func TestContext_ParseJson(t *testing.T) {
 	ctx := r.NewContext()
 	defer ctx.Free()
 
-	v := ctx.ParseJson(`{"a":"1"}`)
+	v := ctx.ParseJson(`{"attachTimerTo":"1"}`)
 	defer v.Free()
 	assert.True(v.IsObject())
-	assert.Equal("1", v.Get("a").String())
+	assert.Equal("1", v.Get("attachTimerTo").String())
 
 }
