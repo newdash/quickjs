@@ -205,3 +205,21 @@ func TestValue_StringWithChinese(t *testing.T) {
 	assert.True(jsFunctionFString.IsFunction())
 	assert.Equal("中文", jsFunctionFString.Call().String())
 }
+
+func TestValue_New(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	Date := ctx.Globals().Get("Date")
+	assert.True(Date.IsConstructor())
+	date := Date.New()
+	assert.True(date.IsObject())
+	assert.True(date.HasProperty("getTime"))
+	getTimeResult := date.Get("getTime").CallWithContext(date)
+	getTimeResultTypeof := getTimeResult.TypeOf()
+	assert.Equal(JsTypeNumber, getTimeResultTypeof)
+
+}

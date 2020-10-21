@@ -35,12 +35,35 @@ func (v Value) String() string {
 	return C.GoString(ptr)
 }
 
-// call function
+// Call function without `this`
 func (v Value) Call(args ...Value) Value {
 	return v.CallWithContext(v.ctx.Undefined(), args...)
 }
 
+// New for constructor
+func (v Value) New(args ...Value) Value {
+
+	if len(args) > 0 {
+		var jsArgs []C.JSValue
+		for _, goArg := range args {
+			jsArgs = append(jsArgs, goArg.ref)
+		}
+
+		return Value{
+			ctx: v.ctx,
+			ref: C.JS_CallConstructor(v.ctx.ref, v.ref, C.int(len(args)), &jsArgs[0]),
+		}
+	}
+
+	return Value{
+		ctx: v.ctx,
+		ref: C.JS_CallConstructor(v.ctx.ref, v.ref, C.int(len(args)), nil),
+	}
+
+}
+
 // CallWithContext call function with this parameter
+// if client call a function from class instance/object, please remember set the `this` object
 func (v Value) CallWithContext(thisArg Value, args ...Value) Value {
 	if len(args) > 0 {
 		var jsArgs []C.JSValue

@@ -264,16 +264,24 @@ func (ctx *Context) ToJSValue(value interface{}) Value {
 
 // ParseJson parse Value from JSON string
 func (ctx *Context) ParseJson(jsonStr string) Value {
-	undefined := ctx.Undefined()
-	defer undefined.Free()
 	jsJsonString := ctx.ToJSValue(jsonStr)
 	defer jsJsonString.Free()
-	return ctx.Globals().Get("JSON").Get("parse").CallWithContext(undefined, jsJsonString)
+	JSON := ctx.Globals().Get("JSON")
+	return JSON.Get("parse").CallWithContext(JSON, jsJsonString)
 }
 
-func (ctx *Context) CreateObjectWith(value interface{}) Value {
-	return ctx.ToJSValue(value)
+// NewPromise shortcut for creating a new promise object
+func (ctx *Context) NewPromise(runner PromiseRunner) Value {
+	cb := ctx.Function(func(ctx *Context, this Value, args []Value) Value {
+		resolve := args[0]
+		reject := args[1]
+		runner(resolve, reject)
+		return ctx.Undefined()
+	})
+	return ctx.Globals().Get("Promise").New(cb)
 }
+
+type PromiseRunner = func(resolve, reject Value)
 
 func (ctx *Context) Array() Value {
 	return Value{ctx: ctx, ref: C.JS_NewArray(ctx.ref)}

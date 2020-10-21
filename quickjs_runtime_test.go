@@ -180,16 +180,16 @@ func TestContext_CreateObjectWithPrimitive(t *testing.T) {
 	defer r.Free()
 	ctx := r.NewContext()
 	defer ctx.Free()
-	v := ctx.CreateObjectWith(1)
+	v := ctx.ToJSValue(1)
 	assert.True(v.IsNumber())
-	v = ctx.CreateObjectWith(1.1)
+	v = ctx.ToJSValue(1.1)
 	assert.True(v.IsNumber())
 	assert.Equal(1.1, v.Float64())
-	v = ctx.CreateObjectWith(true)
+	v = ctx.ToJSValue(true)
 	assert.True(v.IsBool())
-	v = ctx.CreateObjectWith(nil)
+	v = ctx.ToJSValue(nil)
 	assert.True(v.IsNull())
-	v = ctx.CreateObjectWith("hello")
+	v = ctx.ToJSValue("hello")
 	assert.True(v.IsString())
 	r.RunGC()
 }
@@ -299,7 +299,7 @@ func TestRuntime_SetTimeout2(t *testing.T) {
 	ctx := r.NewContext()
 	defer ctx.Free()
 	called := false
-	
+
 	ctx.Globals().Set("cb", ctx.Function(func(ctx *Context, this Value, args []Value) Value {
 		called = true
 		return ctx.Undefined()
