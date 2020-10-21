@@ -6,6 +6,7 @@ on:
     branches: '*'
   schedule:
     - cron: '0 2 * * *'
+    
 jobs:
 
   test:
@@ -27,27 +28,5 @@ jobs:
 
       - name: Go Test
         run: go test --mod=vendor -v .
-      
-  test-windows:
-    name: Unit Test (Windows)
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ windows-latest ]
-    steps:
 
-      - name: Install libdl for windows
-        run: pacman -S mingw-w64-x86_64-dlfcn
-        
-      - name: Set up Go 1.14
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.14
-        id: go
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-
-      - name: Go Test
-        run: go test --mod=vendor -v .
       

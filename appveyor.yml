@@ -1,0 +1,13 @@
+# appveyor.yml
+build: off
+
+clone_folder: c:\gopath\src\github.com\$username\$project
+
+environment:
+  GOPATH: c:\gopath
+
+stack: go 1.14
+
+
+test_script:
+  - go test --mod=vendor -v .
