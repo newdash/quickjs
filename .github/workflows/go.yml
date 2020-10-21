@@ -16,6 +16,9 @@ jobs:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
     steps:
 
+      - name: Install libdl for windows
+        run: pacman -S mingw-w64-x86_64-dlfcn
+        
       - name: Set up Go 1.14
         uses: actions/setup-go@v1
         with:
