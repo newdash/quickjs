@@ -32,6 +32,11 @@ func (ctx *Context) Free() {
 	C.JS_FreeContext(ctx.ref)
 }
 
+// WaitLoopFinished to wait all async timer finished
+func (ctx *Context) WaitLoopFinished() {
+	C.js_std_loop(ctx.ref)
+}
+
 func (ctx *Context) Function(fn JSFunction) Value {
 	val := ctx.eval(`(proxy, id) => function() { return proxy.call(this, id, ...arguments); }`)
 	if val.IsException() {
@@ -112,22 +117,24 @@ func (ctx *Context) Atom(v string) Atom {
 	return Atom{ctx: ctx, ref: C.JS_NewAtom(ctx.ref, ptr)}
 }
 
-func (ctx *Context) eval(code string) Value { return ctx.evalFile(code, "code") }
+func (ctx *Context) eval(code string) Value { return ctx.evalFile(code, "code", 0) }
 
-func (ctx *Context) evalFile(code, filename string) Value {
+func (ctx *Context) evalFile(code, filename string, mod int) Value {
 	codePtr := C.CString(code)
 	defer C.free(unsafe.Pointer(codePtr))
 
 	filenamePtr := C.CString(filename)
 	defer C.free(unsafe.Pointer(filenamePtr))
 
-	return Value{ctx: ctx, ref: C.JS_Eval(ctx.ref, codePtr, C.size_t(len(code)), filenamePtr, C.int(0))}
+	return Value{ctx: ctx, ref: C.JS_Eval(ctx.ref, codePtr, C.size_t(len(code)), filenamePtr, C.int(mod))}
 }
 
-func (ctx *Context) Eval(code string) (Value, error) { return ctx.EvalFile(code, "code") }
+func (ctx *Context) EvalModule(code string) (Value, error) { return ctx.EvalFile(code, "code", 1) }
 
-func (ctx *Context) EvalFile(code, filename string) (Value, error) {
-	val := ctx.evalFile(code, filename)
+func (ctx *Context) EvalGlobal(code string) (Value, error) { return ctx.EvalFile(code, "code", 0) }
+
+func (ctx *Context) EvalFile(code, filename string, mod int) (Value, error) {
+	val := ctx.evalFile(code, filename, mod)
 	if val.IsException() {
 		return val, ctx.Exception()
 	}

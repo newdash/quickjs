@@ -3,12 +3,11 @@ package quickjs
 import (
 	"errors"
 	"fmt"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	stdruntime "runtime"
 	"sync"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestObject(t *testing.T) {
@@ -24,7 +23,7 @@ func TestObject(t *testing.T) {
 	test.Set("C", context.String("String C"))
 	context.Globals().Set("test", test)
 
-	result, err := context.Eval(`Object.keys(test).map(key => test[key]).join(" ")`)
+	result, err := context.EvalGlobal(`Object.keys(test).map(key => test[key]).join(" ")`)
 	require.NoError(t, err)
 	defer result.Free()
 
@@ -48,7 +47,7 @@ func TestArray(t *testing.T) {
 
 	context.Globals().Set("test", test)
 
-	result, err := context.Eval(`test.map(v => v.toUpperCase())`)
+	result, err := context.EvalGlobal(`test.map(v => v.toUpperCase())`)
 	require.NoError(t, err)
 	defer result.Free()
 
@@ -62,7 +61,7 @@ func TestBadSyntax(t *testing.T) {
 	context := runtime.NewContext()
 	defer context.Free()
 
-	_, err := context.Eval(`"bad syntax'`)
+	_, err := context.EvalGlobal(`"bad syntax'`)
 	require.Error(t, err)
 }
 
@@ -79,7 +78,7 @@ func TestFunctionThrowError(t *testing.T) {
 		return ctx.ThrowError(expected)
 	})
 
-	_, actual := context.Eval("A()")
+	_, actual := context.EvalGlobal("A()")
 	require.Error(t, actual)
 	require.EqualValues(t, "Error: "+expected.Error(), actual.Error())
 }
@@ -114,14 +113,14 @@ func TestFunction(t *testing.T) {
 		return ctx.Float64(256)
 	})
 
-	result, err := context.Eval(`A("hello world!", 1, 2 ** 3, null)`)
+	result, err := context.EvalGlobal(`A("hello world!", 1, 2 ** 3, null)`)
 	require.NoError(t, err)
 	defer result.Free()
 
 	require.True(t, result.IsString() && result.String() == "A says hello")
 	<-A
 
-	result, err = context.Eval(`B()`)
+	result, err = context.EvalGlobal(`B()`)
 	require.NoError(t, err)
 	defer result.Free()
 
@@ -152,7 +151,7 @@ func TestConcurrency(t *testing.T) {
 			defer context.Free()
 
 			for range req {
-				result, err := context.Eval(`new Date().getTime()`)
+				result, err := context.EvalGlobal(`new Date().getTime()`)
 				require.NoError(t, err)
 
 				res <- result.Int64()
@@ -219,11 +218,11 @@ func TestValue_PropertyNames(t *testing.T) {
 	defer r.RunGC()
 	ctx := r.NewContext()
 	defer ctx.Free()
-	_, err := ctx.Eval("class A { constructor() { this.attachTimerTo = 1 } };")
+	_, err := ctx.EvalGlobal("class A { constructor() { this.attachTimerTo = 1 } };")
 	assert.Nil(err)
-	_, err = ctx.Eval("class B extends A { constructor() { super(); this.b = 1 } }; ")
+	_, err = ctx.EvalGlobal("class B extends A { constructor() { super(); this.b = 1 } }; ")
 	assert.Nil(err)
-	v, err := ctx.Eval("new B()")
+	v, err := ctx.EvalGlobal("new B()")
 	assert.Nil(err)
 	assert.True(v.IsObject())
 	names, err := v.PropertyNames()
@@ -244,7 +243,7 @@ func TestValue_InterfaceObject(t *testing.T) {
 	assert.True(v.IsObject())
 	assert.Equal(map[string]interface{}{"attachTimerTo": map[string]interface{}{"b": int64(1)}}, v.Interface())
 
-	v2, err := ctx.Eval("var object = {attachTimerTo:{b:1}};object")
+	v2, err := ctx.EvalGlobal("var object = {attachTimerTo:{b:1}};object")
 	assert.Nil(err)
 	assert.True(v2.IsObject())
 	assert.Equal(map[string]interface{}{"attachTimerTo": map[string]interface{}{"b": int64(1)}}, v2.Interface())
@@ -265,12 +264,51 @@ func TestValue_Decode(t *testing.T) {
 	defer r.RunGC()
 	ctx := r.NewContext()
 	defer ctx.Free()
-	v2, err := ctx.Eval("var object = {a:{b:1}};object")
+	v2, err := ctx.EvalGlobal("var object = {a:{b:1}};object")
 	defer v2.Free()
 	assert.Nil(err)
 	assert.True(v2.IsObject())
 	structA := &DecodeStructBase{}
 	v2.Decode(structA)
 	assert.Equal(1, structA.A.B)
+
+}
+
+func TestRuntime_SetTimeout(t *testing.T) {
+
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+
+	ctx.EvalGlobal("var a = 1; setTimeout(()=>{ a=2 },100)")
+
+	ctx.WaitLoopFinished()
+	assert.Equal(int64(2), ctx.Globals().Get("a").Int64())
+
+}
+
+func TestRuntime_SetTimeout2(t *testing.T) {
+
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	called := false
+	
+	ctx.Globals().Set("cb", ctx.Function(func(ctx *Context, this Value, args []Value) Value {
+		called = true
+		return ctx.Undefined()
+	}))
+
+	ctx.EvalGlobal("var a = 1; setTimeout(cb, 100)")
+
+	ctx.WaitLoopFinished()
+
+	assert.True(called)
 
 }

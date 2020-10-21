@@ -1,6 +1,7 @@
 package quickjs
 
 import (
+	"fmt"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -22,10 +23,17 @@ type Runtime struct {
 	ref *C.JSRuntime
 }
 
+const setupGlobalFunctions = `
+import { setTimeout, clearTimeout } from "os"
+globalThis.setTimeout = setTimeout
+globalThis.clearTimeout = clearTimeout
+`
+
 // NewRuntime for javascript
 func NewRuntime() Runtime {
 	rt := Runtime{ref: C.JS_NewRuntime()}
 	C.JS_SetCanBlock(rt.ref, C.int(1))
+	C.js_std_init_handlers(rt.ref)
 	return rt
 }
 
@@ -53,8 +61,19 @@ func (r Runtime) NewContext() *Context {
 	C.JS_AddIntrinsicBigDecimal(ref)
 	C.JS_AddIntrinsicOperators(ref)
 	C.JS_EnableBignumExt(ref, C.int(1))
+	sStd := C.CString("std")
+	defer C.free(unsafe.Pointer(sStd))
+	C.js_init_module_std(ref, sStd)
+	sOs := C.CString("os")
+	defer C.free(unsafe.Pointer(sOs))
+	C.js_init_module_os(ref, sOs)
 
 	ctx := &Context{ref: ref}
+	_, err := ctx.EvalModule(setupGlobalFunctions)
+
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	return ctx
 }

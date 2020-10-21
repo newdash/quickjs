@@ -306,6 +306,9 @@ func (v Value) TypeOf() JsType {
 	if v.IsObject() {
 		return JsTypeObject
 	}
+	if v.IsSymbol() {
+		return JsTypeSymbol
+	}
 	return JsTypeUndefined
 }
 

@@ -31,7 +31,7 @@ func main() {
 
 	// Test evaluating template strings.
 
-	result, err := context.Eval("`Hello world! 2 ** 8 = ${2 ** 8}.`")
+	result, err := context.EvalGlobal("`Hello world! 2 ** 8 = ${2 ** 8}.`")
 	check(err)
 	defer result.Free()
 
@@ -40,7 +40,7 @@ func main() {
 
 	// Test evaluating numeric expressions.
 
-	result, err = context.Eval(`1 + 2 * 100 - 3 + Math.sin(10)`)
+	result, err = context.EvalGlobal(`1 + 2 * 100 - 3 + Math.sin(10)`)
 	check(err)
 	defer result.Free()
 
@@ -49,7 +49,7 @@ func main() {
 
 	// Test evaluating big integer expressions.
 
-	result, err = context.Eval(`128n ** 16n`)
+	result, err = context.EvalGlobal(`128n ** 16n`)
 	check(err)
 	defer result.Free()
 
@@ -58,7 +58,7 @@ func main() {
 
 	// Test evaluating big decimal expressions.
 
-	result, err = context.Eval(`128l ** 12l`)
+	result, err = context.EvalGlobal(`128l ** 12l`)
 	check(err)
 	defer result.Free()
 
@@ -67,7 +67,7 @@ func main() {
 
 	// Test evaluating boolean expressions.
 
-	result, err = context.Eval(`false && true`)
+	result, err = context.EvalGlobal(`false && true`)
 	check(err)
 	defer result.Free()
 
@@ -89,14 +89,14 @@ func main() {
 	globals.Set("A", context.Function(A))
 	globals.Set("B", context.Function(B))
 
-	_, err = context.Eval(`for (let i = 0; i < 10; i++) { if (i % 2 === 0) A(); else B(); }`)
+	_, err = context.EvalGlobal(`for (let i = 0; i < 10; i++) { if (i % 2 === 0) A(); else B(); }`)
 	check(err)
 
 	fmt.Println()
 
 	// Test setting global variables.
 
-	_, err = context.Eval(`HELLO = "world"; TEST = false;`)
+	_, err = context.EvalGlobal(`HELLO = "world"; TEST = false;`)
 	check(err)
 
 	names, err := globals.PropertyNames()
@@ -118,7 +118,7 @@ func main() {
 		return
 	}
 
-	result, err = context.Eval(strings.Join(flag.Args(), " "))
+	result, err = context.EvalGlobal(strings.Join(flag.Args(), " "))
 	check(err)
 	defer result.Free()
 
