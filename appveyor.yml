@@ -10,5 +10,8 @@ environment:
 
 stack: go 1.14
 
+install:
+  - choco install msys2
+
 test_script:
   - go test --mod=vendor -v .
