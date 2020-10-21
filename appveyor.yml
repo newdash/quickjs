@@ -1,4 +1,6 @@
 # appveyor.yml
+image: Previous Visual Studio 2019
+
 build: off
 
 clone_folder: c:\gopath\src\github.com\newdash\quickjs
