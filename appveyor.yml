@@ -1,13 +1,12 @@
 # appveyor.yml
 build: off
 
-clone_folder: c:\gopath\src\github.com\$username\$project
+clone_folder: c:\gopath\src\github.com\newdash\quickjs
 
 environment:
   GOPATH: c:\gopath
 
 stack: go 1.14
-
 
 test_script:
   - go test --mod=vendor -v .
