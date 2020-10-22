@@ -246,9 +246,9 @@ func TestValue_ToReflectValue(t *testing.T) {
 
 	ctx.EvalGlobal("var v2 = {a:1,b:'2'}")
 	reflectV2 := Global.Get("v2").ToReflectValue(reflect.TypeOf(ReflectValueTestStruct{}))
-	assert.Equal(&ReflectValueTestStruct{1, "2"}, reflectV2.Interface())
+	assert.Equal(ReflectValueTestStruct{1, "2"}, reflectV2.Interface())
 
 	ctx.EvalGlobal("var v3 = [1,2,3]")
 	reflectV3 := Global.Get("v3").ToReflectValue(reflect.TypeOf([]int32{}))
-	assert.Equal(&[]int32{1, 2, 3}, reflectV3.Interface())
+	assert.Equal([]int32{1, 2, 3}, reflectV3.Interface())
 }

@@ -2,13 +2,38 @@ package quickjs
 
 import (
 	"errors"
+	"net/http"
+	"strings"
+
 	"github.com/imroc/req"
 )
 
 type FetchInit struct {
-	Method  string            `mapstructure:"method"`
-	Headers map[string]string `mapstructure:"headers"`
-	Body    interface{}       `mapstructure:"body"`
+	Method  string      `mapstructure:"method"`
+	Headers req.Header  `mapstructure:"headers"`
+	Body    interface{} `mapstructure:"body"`
+}
+
+type FetchResponse struct {
+	Url        string      `mapstructure:"url"`
+	Headers    http.Header `mapstructure:"headers"`
+	Status     int         `mapstructure:"status"`
+	StatusText string      `mapstructure:"statusText"`
+	resp       *req.Resp
+	ctx        *Context
+}
+
+func (fr FetchResponse) Json() Value {
+	return fr.ctx.NewPromise(func(resolve, reject Value) {
+		body := fr.resp.String()
+		resolve.Call(fr.ctx.ParseJson(body))
+	})
+}
+
+func (fr FetchResponse) Text() Value {
+	return fr.ctx.NewPromise(func(resolve, reject Value) {
+		resolve.Call(fr.ctx.ToJSValue(fr.resp.String()))
+	})
 }
 
 // WebCoreFetch for javascript
@@ -33,12 +58,23 @@ func WebCoreFetch(ctx *Context, this Value, args []Value) Value {
 			init.Method = "GET"
 		}
 
-		_, err := req.Do(init.Method, url)
+		init.Method = strings.ToUpper(init.Method)
+
+		resp, err := req.Do(init.Method, url, init.Headers, init.Body)
 
 		if err != nil {
 			reject.Call(ctx.Error(err))
 		} else {
-
+			fetchResponse := FetchResponse{
+				Url:        resp.Request().URL.String(),
+				ctx:        ctx,
+				resp:       resp,
+				Headers:    resp.Request().Header,
+				Status:     resp.Response().StatusCode,
+				StatusText: resp.Response().Status,
+			}
+			resolve.Call(ctx.ToJSValue(fetchResponse))
 		}
+
 	})
 }

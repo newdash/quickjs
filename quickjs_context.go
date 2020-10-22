@@ -314,8 +314,9 @@ func (ctx *Context) ParseJson(jsonStr string) Value {
 // NewPromise shortcut for creating a new promise object
 func (ctx *Context) NewPromise(runner PromiseRunner) Value {
 	cb := ctx.Function(func(ctx *Context, this Value, args []Value) Value {
-		resolve := args[0]
-		reject := args[1]
+
+		resolve := args[0].Dup()
+		reject := args[1].Dup()
 		runner(resolve, reject)
 		return ctx.Undefined()
 	})

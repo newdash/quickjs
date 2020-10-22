@@ -325,10 +325,13 @@ func (v Value) ToReflectValue(rType reflect.Type) reflect.Value {
 		reflectInstance := reflect.New(rType)
 		instance := reflectInstance.Interface()
 		v.Decode(instance)
-		return reflect.ValueOf(instance)
+		return reflect.Indirect(reflect.ValueOf(instance))
+		//case reflect.Ptr:
+		//	rType2 := reflect.Indirect()
+
 	}
 
-	return reflect.ValueOf(nil)
+	return reflect.ValueOf(v.Interface())
 
 }
 
@@ -384,6 +387,15 @@ func (v Value) ToJsonString() string {
 	}
 	defer jsonStr.Free()
 	return jsonStr.String()
+}
+
+// Dup value instance avoid freed by quickjs
+// so user MUST manually free it
+func (v Value) Dup() Value {
+	return Value{
+		ctx: v.ctx,
+		ref: C.JS_DupValue(v.ctx.ref, v.ref),
+	}
 }
 
 // PropertyNames of object, includes prototype
