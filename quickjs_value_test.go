@@ -2,6 +2,7 @@ package quickjs
 
 import (
 	"github.com/stretchr/testify/assert"
+	"reflect"
 	"testing"
 )
 
@@ -222,4 +223,32 @@ func TestValue_New(t *testing.T) {
 	getTimeResultTypeof := getTimeResult.TypeOf()
 	assert.Equal(JsTypeNumber, getTimeResultTypeof)
 
+}
+
+type ReflectValueTestStruct struct {
+	A int32  `mapstructure:"a"`
+	B string `mapstructure:"b"`
+}
+
+func TestValue_ToReflectValue(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+
+	Global := ctx.Globals()
+
+	Global.Set("v1", ctx.Int32(42))
+	reflectV1 := Global.Get("v1").ToReflectValue(reflect.TypeOf(int32(42)))
+	assert.Equal(int32(42), reflectV1.Interface())
+
+	ctx.EvalGlobal("var v2 = {a:1,b:'2'}")
+	reflectV2 := Global.Get("v2").ToReflectValue(reflect.TypeOf(ReflectValueTestStruct{}))
+	assert.Equal(&ReflectValueTestStruct{1, "2"}, reflectV2.Interface())
+
+	ctx.EvalGlobal("var v3 = [1,2,3]")
+	reflectV3 := Global.Get("v3").ToReflectValue(reflect.TypeOf([]int32{}))
+	assert.Equal(&[]int32{1, 2, 3}, reflectV3.Interface())
 }

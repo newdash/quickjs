@@ -52,3 +52,47 @@ func TestContext_ParseJson(t *testing.T) {
 	assert.Equal("1", v.Get("attachTimerTo").String())
 
 }
+
+type DemoObject struct{}
+
+func (s DemoObject) Add(v1, v2 int64) int64 {
+	return v1 + v2
+}
+
+func TestContext_ToJSValueWithFunc(t *testing.T) {
+	assert := assert.New(t)
+	r := NewRuntime()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+
+	Global := ctx.Globals()
+	Global.SetGoValue("Demo", DemoObject{})
+
+	Demo := Global.Get("Demo")
+	assert.True(Demo.IsObject())
+	Add := Demo.Get("Add")
+	assert.True(Add.IsFunction())
+	assert.Equal(int64(42), Add.Call(ctx.ToJSValue(1), ctx.ToJSValue(41)).Int64())
+}
+
+type DemoObject2 struct {
+	a string
+	B string `mapstructure:"b"`
+}
+
+func TestContext_ToJSValueWithPrivateField(t *testing.T) {
+	assert := assert.New(t)
+	r := NewRuntime()
+	defer r.RunGC()
+	ctx := r.NewContext()
+	defer ctx.Free()
+
+	Global := ctx.Globals()
+	Global.SetGoValue("Demo", DemoObject2{"v1", "v2"})
+
+	Demo := Global.Get("Demo")
+	assert.True(Demo.IsObject())
+	a := Demo.Get("a")
+	assert.True(a.IsUndefined())
+}

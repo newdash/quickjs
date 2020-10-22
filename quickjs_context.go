@@ -203,15 +203,23 @@ func (ctx *Context) Object() Value {
 	return Value{ctx: ctx, ref: C.JS_NewObject(ctx.ref)}
 }
 
+// ToJSValue convert golang object to quickjs.Value
 func (ctx *Context) ToJSValue(value interface{}) Value {
 	if value == nil {
-		return ctx.Null()
+		return ctx.Undefined()
 	}
 
 	reflectValue := reflect.ValueOf(value)
 	reflectType := reflectValue.Type()
+
+	// if it is quickjs.Value, return it directly
 	if reflectType == reflect.TypeOf(Value{}) {
 		return value.(Value)
+	}
+	// if is reflect.Value, unwrap the real value
+	if reflectType == reflect.TypeOf(reflect.Value{}) {
+		value := value.(reflect.Value).Interface()
+		return ctx.ToJSValue(value)
 	}
 
 	switch reflectValue.Kind() {
@@ -239,9 +247,19 @@ func (ctx *Context) ToJSValue(value interface{}) Value {
 	case reflect.Struct:
 		obj := ctx.Object()
 		for fIndex := 0; fIndex < reflectValue.NumField(); fIndex++ {
-			fieldName := reflectType.Field(fIndex).Name
 			field := reflectValue.Field(fIndex)
-			obj.Set(fieldName, ctx.ToJSValue(field.Interface()))
+			fieldName := reflectType.Field(fIndex).Name
+			if isExportedName(fieldName) {
+				obj.Set(fieldName, ctx.ToJSValue(field.Interface()))
+			}
+		}
+		methodCount := reflectType.NumMethod()
+		for mIndex := 0; mIndex < methodCount; mIndex++ {
+			method := reflectValue.Method(mIndex)
+			methodName := reflectType.Method(mIndex).Name
+			if isExportedName(methodName) {
+				obj.Set(methodName, ctx.ToJSValue(method.Interface()))
+			}
 		}
 		return obj
 	case reflect.Slice:
@@ -253,7 +271,30 @@ func (ctx *Context) ToJSValue(value interface{}) Value {
 		}
 		return obj
 	case reflect.Func:
+		funcArgsNum := reflectType.NumIn()
 		return ctx.Function(func(ctx *Context, this Value, jsArgs []Value) Value {
+			if len(jsArgs) < funcArgsNum {
+				return ctx.ThrowError(fmt.Errorf("arguments is not enough, the function require '%v' parameters", funcArgsNum))
+			}
+
+			var goFuncArgs []reflect.Value
+
+			for i := 0; i < funcArgsNum; i++ {
+				argType := reflectType.In(i)
+				jsArg := jsArgs[i]
+				goFuncArgs = append(goFuncArgs, jsArg.ToReflectValue(argType))
+			}
+
+			goFuncResult := reflectValue.Call(goFuncArgs)
+
+			if len(goFuncResult) == 0 {
+				return ctx.Undefined()
+			} else if len(goFuncResult) == 1 {
+				return ctx.ToJSValue(goFuncResult[0])
+			} else {
+				return ctx.ToJSValue(goFuncResult)
+			}
+
 			return ctx.ThrowError(fmt.Errorf("not support call golang function directly"))
 		})
 	default:

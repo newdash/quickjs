@@ -13,6 +13,7 @@ import (
 	"errors"
 	"github.com/mitchellh/mapstructure"
 	"math/big"
+	"reflect"
 	"unsafe"
 )
 
@@ -164,6 +165,14 @@ func (v Value) Set(name string, val Value) {
 	C.JS_SetPropertyStr(v.ctx.ref, v.ref, namePtr, val.ref)
 }
 
+// SetGoValue with set value with go object
+func (v Value) SetGoValue(name string, value interface{}) {
+	namePtr := C.CString(name)
+	defer C.free(unsafe.Pointer(namePtr))
+	val := v.ctx.ToJSValue(value)
+	C.JS_SetPropertyStr(v.ctx.ref, v.ref, namePtr, val.ref)
+}
+
 // HasProperty with name
 func (v Value) HasProperty(name string) bool {
 	namePtr := C.CString(name)
@@ -291,6 +300,36 @@ func (v Value) Interface() interface{} {
 	}
 
 	return nil
+}
+
+// ToReflectValue used in native function call processing
+// must provide a reflect.Type to check and return the reflect.Value instance
+func (v Value) ToReflectValue(rType reflect.Type) reflect.Value {
+
+	switch rType.Kind() {
+	case reflect.Int64:
+		return reflect.ValueOf(v.Int64())
+	case reflect.Int32:
+		return reflect.ValueOf(v.Int32())
+	case reflect.Int16:
+		return reflect.ValueOf(int16(v.Int64()))
+	case reflect.Int8:
+		return reflect.ValueOf(int8(v.Int64()))
+	case reflect.Int:
+		return reflect.ValueOf(int(v.Int64()))
+	case reflect.Float32:
+		return reflect.ValueOf(float32(v.Float64()))
+	case reflect.Float64:
+		return reflect.ValueOf(v.Float64())
+	case reflect.Struct, reflect.Slice:
+		reflectInstance := reflect.New(rType)
+		instance := reflectInstance.Interface()
+		v.Decode(instance)
+		return reflect.ValueOf(instance)
+	}
+
+	return reflect.ValueOf(nil)
+
 }
 
 type JsType = string

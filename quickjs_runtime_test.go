@@ -188,7 +188,7 @@ func TestContext_CreateObjectWithPrimitive(t *testing.T) {
 	v = ctx.ToJSValue(true)
 	assert.True(v.IsBool())
 	v = ctx.ToJSValue(nil)
-	assert.True(v.IsNull())
+	assert.True(v.IsUndefined())
 	v = ctx.ToJSValue("hello")
 	assert.True(v.IsString())
 	r.RunGC()
