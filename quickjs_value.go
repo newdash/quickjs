@@ -82,7 +82,6 @@ func (v Value) CallWithContext(thisArg Value, args ...Value) Value {
 		ctx: v.ctx,
 		ref: C.JS_Call(v.ctx.ref, v.ref, thisArg.ref, C.int(len(args)), nil),
 	}
-
 }
 
 func (v Value) Int64() int64 {
@@ -288,12 +287,32 @@ func (v Value) Interface() interface{} {
 		}
 		return rt
 	}
+
+	// function also will be an object, just return function firstly
+	if v.IsFunction() {
+		return func(args ...interface{}) interface{} {
+			var jsArgs []Value
+			for arg := range args {
+				jsArgs = append(jsArgs, v.ctx.ToJSValue(arg))
+			}
+			result := v.Call(jsArgs...)
+			if result.IsException() {
+				return v.ctx.Exception()
+			}
+			return result.Interface()
+		}
+	}
+
 	if v.IsObject() {
 
 		rt := map[string]interface{}{}
 		if names, err := v.PropertyNames(); err == nil {
 			for _, name := range names {
-				rt[name.String()] = v.GetByAtom(name.Atom).Interface()
+				propertyKey := name.String()
+				propertyValue := v.GetByAtom(name.Atom)
+				if !propertyValue.IsUndefined() {
+					rt[propertyKey] = propertyValue.Interface()
+				}
 			}
 		}
 		return rt
@@ -326,9 +345,6 @@ func (v Value) ToReflectValue(rType reflect.Type) reflect.Value {
 		instance := reflectInstance.Interface()
 		v.Decode(instance)
 		return reflect.Indirect(reflect.ValueOf(instance))
-		//case reflect.Ptr:
-		//	rType2 := reflect.Indirect()
-
 	}
 
 	return reflect.ValueOf(v.Interface())

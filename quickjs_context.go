@@ -11,6 +11,7 @@ package quickjs
 import "C"
 import (
 	"fmt"
+	"io"
 	"reflect"
 	"unsafe"
 )
@@ -19,6 +20,7 @@ type Context struct {
 	ref     *C.JSContext
 	globals *Value
 	proxy   *Value
+	runtime *Runtime
 }
 
 func (ctx *Context) Free() {
@@ -30,11 +32,6 @@ func (ctx *Context) Free() {
 	}
 
 	C.JS_FreeContext(ctx.ref)
-}
-
-// WaitLoopFinished to wait all async timer finished
-func (ctx *Context) WaitLoopFinished() {
-	C.js_std_loop(ctx.ref)
 }
 
 func (ctx *Context) Function(fn JSFunction) Value {
@@ -205,6 +202,7 @@ func (ctx *Context) Object() Value {
 
 // ToJSValue convert golang object to quickjs.Value
 func (ctx *Context) ToJSValue(value interface{}) Value {
+
 	if value == nil {
 		return ctx.Undefined()
 	}
@@ -314,13 +312,23 @@ func (ctx *Context) ParseJson(jsonStr string) Value {
 // NewPromise shortcut for creating a new promise object
 func (ctx *Context) NewPromise(runner PromiseRunner) Value {
 	cb := ctx.Function(func(ctx *Context, this Value, args []Value) Value {
-
-		resolve := args[0].Dup()
-		reject := args[1].Dup()
-		runner(resolve, reject)
+		runner(args[0], args[1])
 		return ctx.Undefined()
 	})
 	return ctx.Globals().Get("Promise").New(cb)
+}
+
+func (ctx *Context) ExecutePendingJob() error {
+
+	code := C.JS_ExecutePendingJob(ctx.runtime.ref, &ctx.ref)
+	if code <= 0 {
+		if code == 0 {
+			return io.EOF
+		}
+		return ctx.Exception()
+	}
+
+	return nil
 }
 
 type PromiseRunner = func(resolve, reject Value)

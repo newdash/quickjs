@@ -6,6 +6,10 @@ Go bindings to [QuickJS](https://bellard.org/quickjs/): a fast, small, and embed
 
 These bindings are a WIP and do not match full parity with QuickJS' API, though expose just enough features to be usable. The version of QuickJS that these bindings bind to may be located [here](version.h).
 
+## NOTICE
+
+QuickJS is not works well with Golang's `goroutine`, please DO NOT share a `quickjs.Runtime` cross different `goroutines`.
+
 ## Usage
 
 ```bash
@@ -19,10 +23,6 @@ $ go get github.com/newdash/quickjs
 3. You may access the stacktrace of an error returned by `Eval()` or `EvalFile()` by casting it to a `*quickjs.Error`.
 4. Make new copies of arguments should you want to return them in functions you created.
 5. Make sure to call `runtime.LockOSThread()` to ensure that QuickJS always operates in the exact same thread.
-
-## Build
-
-`linux/MacOS` build is tested with CI, and for the `Windows`, the `libdl` library is required.
 
 ## License
 

@@ -1,8 +1,6 @@
 package quickjs
 
 import (
-	"fmt"
-	"io"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -20,20 +18,14 @@ import "C"
 
 // Runtime for quickjs
 type Runtime struct {
-	ref *C.JSRuntime
+	ref   *C.JSRuntime
+	tasks chan int64
 }
-
-const setupGlobalFunctions = `
-import { setTimeout, clearTimeout } from "os"
-globalThis.setTimeout = setTimeout
-globalThis.clearTimeout = clearTimeout
-`
 
 // NewRuntime for javascript
 func NewRuntime() Runtime {
-	rt := Runtime{ref: C.JS_NewRuntime()}
+	rt := Runtime{ref: C.JS_NewRuntime(), tasks: make(chan int64)}
 	C.JS_SetCanBlock(rt.ref, C.int(1))
-	C.js_std_init_handlers(rt.ref)
 	return rt
 }
 
@@ -61,35 +53,10 @@ func (r Runtime) NewContext() *Context {
 	C.JS_AddIntrinsicBigDecimal(ref)
 	C.JS_AddIntrinsicOperators(ref)
 	C.JS_EnableBignumExt(ref, C.int(1))
-	sStd := C.CString("std")
-	defer C.free(unsafe.Pointer(sStd))
-	C.js_init_module_std(ref, sStd)
-	sOs := C.CString("os")
-	defer C.free(unsafe.Pointer(sOs))
-	C.js_init_module_os(ref, sOs)
 
-	ctx := &Context{ref: ref}
-	_, err := ctx.EvalModule(setupGlobalFunctions)
-
-	if err != nil {
-		fmt.Println(err)
-	}
+	ctx := &Context{ref: ref, runtime: &r}
 
 	return ctx
-}
-
-func (r Runtime) ExecutePendingJob() (Context, error) {
-	var ctx Context
-
-	err := C.JS_ExecutePendingJob(r.ref, &ctx.ref)
-	if err <= 0 {
-		if err == 0 {
-			return ctx, io.EOF
-		}
-		return ctx, ctx.Exception()
-	}
-
-	return ctx, nil
 }
 
 // JSFunction proxy

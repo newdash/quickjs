@@ -5,7 +5,7 @@ import (
 	"unicode"
 )
 
-var keyMapstructure = "mapstructure"
+var keyMapStructure = "mapstructure"
 
 func isExportedName(name string) bool {
 
@@ -18,7 +18,7 @@ func isExportedName(name string) bool {
 }
 
 func getFieldName(field reflect.StructField) string {
-	tag := field.Tag.Get(keyMapstructure)
+	tag := field.Tag.Get(keyMapStructure)
 	if len(tag) > 0 {
 		return tag
 	}

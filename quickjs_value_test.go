@@ -3,6 +3,7 @@ package quickjs
 import (
 	"github.com/stretchr/testify/assert"
 	"reflect"
+	stdruntime "runtime"
 	"testing"
 )
 
@@ -209,6 +210,7 @@ func TestValue_StringWithChinese(t *testing.T) {
 
 func TestValue_New(t *testing.T) {
 	assert := assert.New(t)
+	stdruntime.LockOSThread()
 
 	r := NewRuntime()
 	defer r.RunGC()
@@ -232,6 +234,7 @@ type ReflectValueTestStruct struct {
 
 func TestValue_ToReflectValue(t *testing.T) {
 	assert := assert.New(t)
+	stdruntime.LockOSThread()
 
 	r := NewRuntime()
 	defer r.RunGC()

@@ -6,11 +6,15 @@ github.com/imroc/req
 # github.com/mitchellh/mapstructure v1.3.3
 ## explicit
 github.com/mitchellh/mapstructure
+# github.com/olebedev/emitter v0.0.0-20190110104742-e8d1457e6aee
+## explicit
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
 # github.com/stretchr/testify v1.6.1
 ## explicit
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
+# golang.org/x/sys v0.0.0-20201022201747-fb209a7c41cd
+## explicit
 # gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 gopkg.in/yaml.v3

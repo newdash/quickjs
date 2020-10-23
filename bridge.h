@@ -1,6 +1,5 @@
 #include "stdlib.h"
 #include "quickjs.h"
-#include "quickjs-libc.h"
 
 extern JSValue InvokeProxy(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 
