@@ -11,9 +11,10 @@ import (
 )
 
 func TestObject(t *testing.T) {
+	stdruntime.UnlockOSThread()
+
 	runtime := NewRuntime()
 	defer runtime.Free()
-
 	context := runtime.NewContext()
 	defer context.Free()
 
@@ -42,7 +43,9 @@ func TestArray(t *testing.T) {
 		test.SetByInt64(i, context.String(fmt.Sprintf("test %d", i)))
 	}
 	for i := int64(0); i < test.Len(); i++ {
-		require.EqualValues(t, fmt.Sprintf("test %d", i), test.GetByUint32(uint32(i)).String())
+		v := test.GetByUint32(uint32(i))
+		require.EqualValues(t, fmt.Sprintf("test %d", i), v.String())
+		v.Free()
 	}
 
 	context.Globals().Set("test", test)
@@ -190,11 +193,13 @@ func TestContext_CreateObjectWithPrimitive(t *testing.T) {
 	v = ctx.ToJSValue(nil)
 	assert.True(v.IsUndefined())
 	v = ctx.ToJSValue("hello")
+	defer v.Free()
 	assert.True(v.IsString())
-	r.RunGC()
 }
 
 func TestContext_GlobalsGet(t *testing.T) {
+	stdruntime.UnlockOSThread()
+
 	assert := assert.New(t)
 	r := NewRuntime()
 	defer r.RunGC()
@@ -202,7 +207,7 @@ func TestContext_GlobalsGet(t *testing.T) {
 	defer ctx.Free()
 	global := ctx.Globals()
 	globalObject := global.Get("Object")
-	assert.True(globalObject.IsObject())
+	assert.True(globalObject.IsConstructor())
 	globalObjectKey := globalObject.Get("keys")
 	assert.True(globalObjectKey.IsFunction())
 	result := globalObjectKey.CallWithContext(ctx.Null(), ctx.ToJSValue(map[string]string{"attachTimerTo": "v"}))

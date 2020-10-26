@@ -2,10 +2,13 @@ package quickjs
 
 import (
 	"github.com/stretchr/testify/assert"
+	stdruntime "runtime"
 	"testing"
 )
 
 func TestContext_CreateObjectWithMap(t *testing.T) {
+	stdruntime.LockOSThread()
+
 	assert := assert.New(t)
 	r := NewRuntime()
 	defer r.Free()
@@ -35,7 +38,10 @@ func TestContext_CreateObjectWithStruct(t *testing.T) {
 	assert.True(v.IsObject())
 	assert.True(v.Get("A").IsNumber())
 	assert.Equal(int64(1), v.Get("A").Int64())
-	assert.Equal("2", v.Get("V").String())
+	ov := v.Get("V")
+	defer ov.Free()
+	assert.True(ov.IsString())
+	assert.Equal("2", ov.String())
 
 }
 
@@ -60,9 +66,10 @@ func (s DemoObject) Add(v1, v2 int64) int64 {
 }
 
 func TestContext_ToJSValueWithFunc(t *testing.T) {
+	stdruntime.LockOSThread()
 	assert := assert.New(t)
 	r := NewRuntime()
-	defer r.RunGC()
+	defer r.Free()
 	ctx := r.NewContext()
 	defer ctx.Free()
 
@@ -70,8 +77,10 @@ func TestContext_ToJSValueWithFunc(t *testing.T) {
 	Global.SetGoValue("Demo", DemoObject{})
 
 	Demo := Global.Get("Demo")
+	defer Demo.Free()
 	assert.True(Demo.IsObject())
 	Add := Demo.Get("Add")
+	defer Add.Free()
 	assert.True(Add.IsFunction())
 	assert.Equal(int64(42), Add.Call(ctx.ToJSValue(1), ctx.ToJSValue(41)).Int64())
 }
@@ -82,9 +91,10 @@ type DemoObject2 struct {
 }
 
 func TestContext_ToJSValueWithPrivateField(t *testing.T) {
+	stdruntime.LockOSThread()
 	assert := assert.New(t)
 	r := NewRuntime()
-	defer r.RunGC()
+	defer r.Free()
 	ctx := r.NewContext()
 	defer ctx.Free()
 
@@ -92,7 +102,9 @@ func TestContext_ToJSValueWithPrivateField(t *testing.T) {
 	Global.SetGoValue("Demo", DemoObject2{"v1", "v2"})
 
 	Demo := Global.Get("Demo")
+	defer Demo.Free()
 	assert.True(Demo.IsObject())
 	a := Demo.Get("a")
+	defer a.Free()
 	assert.True(a.IsUndefined())
 }

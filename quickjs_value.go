@@ -17,13 +17,35 @@ import (
 	"unsafe"
 )
 
+const (
+	JsTagFIRST            = -11 /* first negative tag */
+	JsTagBigDECIMAL       = -11
+	JsTagBigINT           = -10
+	JsTagBigFLOAT         = -9
+	JsTagSYMBOL           = -8
+	JsTagSTRING           = -7
+	JsTagMODULE           = -3 /* used internally */
+	JsTagFunctionByteCode = -2 /* used internally */
+	JsTagOBJECT           = -1
+	JsTagINT              = 0
+	JsTagBOOL             = 1
+	JsTagNULL             = 2
+	JsTagUNDEFINED        = 3
+	JsTagUNINITIALIZED    = 4
+	JsTagCatchOffset      = 5
+	JsTagEXCEPTION        = 6
+	JsTagFLOAT64          = 7
+)
+
 type Value struct {
 	ctx *Context
 	ref C.JSValue
 }
 
 func (v Value) Free() {
-	C.JS_FreeValue(v.ctx.ref, v.ref)
+	if !IsUndefinedOrNull(v.ref) && GetRefCount(v.ctx.ref, v.ref) > 0 {
+		C.JS_FreeValue(v.ctx.ref, v.ref)
+	}
 }
 
 func (v Value) Context() *Context { return v.ctx }
@@ -131,17 +153,17 @@ func (v Value) BigFloat() *big.Float {
 }
 
 func (v Value) Get(name string) Value {
-	namePtr := C.CString(name)
-	defer C.free(unsafe.Pointer(namePtr))
-	return Value{ctx: v.ctx, ref: C.JS_GetPropertyStr(v.ctx.ref, v.ref, namePtr)}
+	nameAtom := v.ctx.Atom(name)
+	defer nameAtom.Free()
+	return v.GetByAtom(nameAtom)
 }
 
 func (v Value) GetByAtom(atom Atom) Value {
-	return Value{ctx: v.ctx, ref: C.JS_GetProperty(v.ctx.ref, v.ref, atom.ref)}
+	return v.ctx.newValue(C.JS_GetProperty(v.ctx.ref, v.ref, atom.ref))
 }
 
 func (v Value) GetByUint32(idx uint32) Value {
-	return Value{ctx: v.ctx, ref: C.JS_GetPropertyUint32(v.ctx.ref, v.ref, C.uint32_t(idx))}
+	return v.ctx.newValue(C.JS_GetPropertyUint32(v.ctx.ref, v.ref, C.uint32_t(idx)))
 }
 
 func (v Value) SetByAtom(atom Atom, val Value) {
@@ -159,9 +181,9 @@ func (v Value) SetByUint32(idx uint32, val Value) {
 func (v Value) Len() int64 { return v.Get("length").Int64() }
 
 func (v Value) Set(name string, val Value) {
-	namePtr := C.CString(name)
-	defer C.free(unsafe.Pointer(namePtr))
-	C.JS_SetPropertyStr(v.ctx.ref, v.ref, namePtr, val.ref)
+	nameAtom := v.ctx.Atom(name)
+	defer nameAtom.Free()
+	v.SetByAtom(nameAtom, val)
 }
 
 // SetGoValue with set value with go object
@@ -169,26 +191,21 @@ func (v Value) SetGoValue(name string, value interface{}) {
 	namePtr := C.CString(name)
 	defer C.free(unsafe.Pointer(namePtr))
 	val := v.ctx.ToJSValue(value)
-	C.JS_SetPropertyStr(v.ctx.ref, v.ref, namePtr, val.ref)
+	v.Set(name, val)
 }
 
 // HasProperty with name
 func (v Value) HasProperty(name string) bool {
-	namePtr := C.CString(name)
-	defer C.free(unsafe.Pointer(namePtr))
-	rt := C.JS_HasProperty(v.ctx.ref, v.ref, C.JS_NewAtom(v.ctx.ref, namePtr))
-	rt1 := int(rt)
-	if rt1 == 1 {
-		return true
-	}
-	return false
+	nameAtom := v.ctx.Atom(name)
+	defer nameAtom.Free()
+	return C.JS_HasProperty(v.ctx.ref, v.ref, nameAtom.ref) == 1
 }
 
 // DeleteProperty property
 func (v Value) DeleteProperty(name string) {
-	namePtr := C.CString(name)
-	defer C.free(unsafe.Pointer(namePtr))
-	C.JS_DeleteProperty(v.ctx.ref, v.ref, C.JS_NewAtom(v.ctx.ref, namePtr), C.int(0))
+	nameAtom := v.ctx.Atom(name)
+	defer nameAtom.Free()
+	C.JS_DeleteProperty(v.ctx.ref, v.ref, nameAtom.ref, C.int(0))
 }
 
 func (v Value) SetFunction(name string, fn JSFunction) {
@@ -216,23 +233,35 @@ func (v Value) Error() error {
 	}
 	return &Error{Cause: cause, Stack: stack.String()}
 }
+func IsUndefinedOrNull(ref C.JSValue) bool {
+	return ref.tag == JsTagNULL || ref.tag == JsTagUNDEFINED
+}
 
-func (v Value) IsNumber() bool        { return C.JS_IsNumber(v.ref) == 1 }
-func (v Value) IsIntNumber() bool     { return C.JS_IsIntNumber(v.ref) == 1 }
-func (v Value) IsFloat64Number() bool { return C.JS_IsFloat64Number(v.ref) == 1 }
+func (v Value) getTag() C.int64_t { return v.ref.tag }
+
+func (v Value) IsNumber() bool        { return v.IsIntNumber() || v.IsFloat64Number() }
+func (v Value) IsIntNumber() bool     { return v.getTag() == JsTagINT }
+func (v Value) IsFloat64Number() bool { return v.ref.tag == JsTagFLOAT64 }
 func (v Value) IsBigInt() bool        { return C.JS_IsBigInt(v.ctx.ref, v.ref) == 1 }
 func (v Value) IsBigFloat() bool      { return C.JS_IsBigFloat(v.ref) == 1 }
 func (v Value) IsBigDecimal() bool    { return C.JS_IsBigDecimal(v.ref) == 1 }
-func (v Value) IsBool() bool          { return C.JS_IsBool(v.ref) == 1 }
-func (v Value) IsNull() bool          { return C.JS_IsNull(v.ref) == 1 }
-func (v Value) IsUndefined() bool     { return C.JS_IsUndefined(v.ref) == 1 }
-func (v Value) IsException() bool     { return C.JS_IsException(v.ref) == 1 }
-func (v Value) IsUninitialized() bool { return C.JS_IsUninitialized(v.ref) == 1 }
-func (v Value) IsString() bool        { return C.JS_IsString(v.ref) == 1 }
-func (v Value) IsSymbol() bool        { return C.JS_IsSymbol(v.ref) == 1 }
-func (v Value) IsObject() bool        { return C.JS_IsObject(v.ref) == 1 }
-func (v Value) IsArray() bool         { return C.JS_IsArray(v.ctx.ref, v.ref) == 1 }
-
+func (v Value) IsBool() bool          { return v.getTag() == JsTagBOOL }
+func (v Value) IsNull() bool          { return v.getTag() == JsTagNULL }
+func (v Value) IsUndefined() bool     { return v.getTag() == JsTagUNDEFINED }
+func (v Value) IsException() bool     { return v.getTag() == JsTagEXCEPTION }
+func (v Value) IsUninitialized() bool { return v.getTag() == JsTagUNINITIALIZED }
+func (v Value) IsString() bool        { return v.getTag() == JsTagSTRING }
+func (v Value) IsSymbol() bool        { return v.getTag() == JsTagSYMBOL }
+func (v Value) IsObject() bool {
+	if v.getTag() == JsTagOBJECT {
+		if v.IsFunction() {
+			return false
+		}
+		return true
+	}
+	return false
+}
+func (v Value) IsArray() bool       { return C.JS_IsArray(v.ctx.ref, v.ref) == 1 }
 func (v Value) IsError() bool       { return C.JS_IsError(v.ctx.ref, v.ref) == 1 }
 func (v Value) IsFunction() bool    { return C.JS_IsFunction(v.ctx.ref, v.ref) == 1 }
 func (v Value) IsConstructor() bool { return C.JS_IsConstructor(v.ctx.ref, v.ref) == 1 }

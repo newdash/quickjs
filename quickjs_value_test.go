@@ -10,7 +10,7 @@ import (
 func TestValue_ToJSONString(t *testing.T) {
 	assert := assert.New(t)
 	r := NewRuntime()
-	defer r.RunGC()
+	defer r.Free()
 	ctx := r.NewContext()
 	defer ctx.Free()
 
@@ -213,15 +213,20 @@ func TestValue_New(t *testing.T) {
 	stdruntime.LockOSThread()
 
 	r := NewRuntime()
-	defer r.RunGC()
+	defer r.Free()
 	ctx := r.NewContext()
 	defer ctx.Free()
 	Date := ctx.Globals().Get("Date")
+	defer Date.Free()
 	assert.True(Date.IsConstructor())
 	date := Date.New()
+	defer date.Free()
 	assert.True(date.IsObject())
 	assert.True(date.HasProperty("getTime"))
-	getTimeResult := date.Get("getTime").CallWithContext(date)
+	getTimeFunc := date.Get("getTime")
+	defer getTimeFunc.Free()
+	getTimeResult := getTimeFunc.CallWithContext(date)
+	defer getTimeResult.Free()
 	getTimeResultTypeof := getTimeResult.TypeOf()
 	assert.Equal(JsTypeNumber, getTimeResultTypeof)
 
@@ -254,4 +259,28 @@ func TestValue_ToReflectValue(t *testing.T) {
 	ctx.EvalGlobal("var v3 = [1,2,3]")
 	reflectV3 := Global.Get("v3").ToReflectValue(reflect.TypeOf([]int32{}))
 	assert.Equal([]int32{1, 2, 3}, reflectV3.Interface())
+}
+
+func TestValue_IsX(t *testing.T) {
+	assert := assert.New(t)
+	stdruntime.LockOSThread()
+
+	r := NewRuntime()
+	defer r.Free()
+	ctx := r.NewContext()
+	defer ctx.Free()
+
+	assert.True(ctx.Int64(10).IsNumber())
+	assert.True(ctx.Int64(10).IsIntNumber())
+	assert.False(ctx.Float64(10.1).IsIntNumber())
+	assert.True(ctx.Float64(10.1).IsFloat64Number())
+	assert.True(ctx.Float64(10.1).IsNumber())
+	assert.True(ctx.Null().IsNull())
+	JSON := ctx.Globals().Get("JSON")
+	defer JSON.Free()
+	parse := JSON.Get("parse")
+	defer parse.Free()
+	assert.True(parse.IsFunction())
+	assert.False(parse.IsObject())
+
 }

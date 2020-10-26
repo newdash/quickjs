@@ -17,16 +17,29 @@ import (
 )
 
 type Context struct {
-	ref     *C.JSContext
-	globals *Value
-	proxy   *Value
-	runtime *Runtime
+	ref         *C.JSContext
+	globals     *Value
+	proxy       *Value
+	runtime     *Runtime
+	objectsRefs []func()
+	valueRefs   []func()
 }
 
 func (ctx *Context) Free() {
+
+	// free all pointers created by current context
+	for _, free := range ctx.objectsRefs {
+		free()
+	}
+
+	for _, free := range ctx.valueRefs {
+		free()
+	}
+
 	if ctx.proxy != nil {
 		ctx.proxy.Free()
 	}
+
 	if ctx.globals != nil {
 		ctx.globals.Free()
 	}
@@ -52,8 +65,7 @@ func (ctx *Context) Function(fn JSFunction) Value {
 	}
 
 	args := []C.JSValue{ctx.proxy.ref, funcPtrVal.ref}
-
-	return Value{ctx: ctx, ref: C.JS_Call(ctx.ref, val.ref, ctx.Null().ref, C.int(len(args)), &args[0])}
+	return ctx.newValue(C.JS_Call(ctx.ref, val.ref, ctx.Null().ref, C.int(len(args)), &args[0]))
 }
 
 func (ctx *Context) Null() Value {
@@ -83,35 +95,40 @@ func (ctx *Context) Bool(b bool) Value {
 }
 
 func (ctx *Context) Int32(v int32) Value {
-	return Value{ctx: ctx, ref: C.JS_NewInt32(ctx.ref, C.int32_t(v))}
+	return ctx.newValue(C.JS_NewInt32(ctx.ref, C.int32_t(v)))
 }
 
 func (ctx *Context) Int64(v int64) Value {
-	return Value{ctx: ctx, ref: C.JS_NewInt64(ctx.ref, C.int64_t(v))}
+	return ctx.newValue(C.JS_NewInt64(ctx.ref, C.int64_t(v)))
 }
 
 func (ctx *Context) Uint32(v uint32) Value {
-	return Value{ctx: ctx, ref: C.JS_NewUint32(ctx.ref, C.uint32_t(v))}
+	return ctx.newValue(C.JS_NewUint32(ctx.ref, C.uint32_t(v)))
 }
 
 func (ctx *Context) BigUint64(v uint64) Value {
-	return Value{ctx: ctx, ref: C.JS_NewBigUint64(ctx.ref, C.uint64_t(v))}
+	return ctx.newValue(C.JS_NewBigUint64(ctx.ref, C.uint64_t(v)))
 }
 
 func (ctx *Context) Float64(v float64) Value {
-	return Value{ctx: ctx, ref: C.JS_NewFloat64(ctx.ref, C.double(v))}
+	return ctx.newValue(C.JS_NewFloat64(ctx.ref, C.double(v)))
 }
 
 func (ctx *Context) String(v string) Value {
 	ptr := C.CString(v)
 	defer C.free(unsafe.Pointer(ptr))
-	return Value{ctx: ctx, ref: C.JS_NewString(ctx.ref, ptr)}
+	return ctx.newValue(C.JS_NewString(ctx.ref, ptr))
+}
+
+func (ctx *Context) newValue(ref C.JSValue) Value {
+	return Value{ctx: ctx, ref: ref}
 }
 
 func (ctx *Context) Atom(v string) Atom {
 	ptr := C.CString(v)
 	defer C.free(unsafe.Pointer(ptr))
-	return Atom{ctx: ctx, ref: C.JS_NewAtom(ctx.ref, ptr)}
+	atomRef := C.JS_NewAtom(ctx.ref, ptr)
+	return Atom{ctx: ctx, ref: atomRef}
 }
 
 func (ctx *Context) eval(code string) Value { return ctx.evalFile(code, "code", 0) }
@@ -197,7 +214,7 @@ func (ctx *Context) Exception() error {
 
 // Object create new JSObject
 func (ctx *Context) Object() Value {
-	return Value{ctx: ctx, ref: C.JS_NewObject(ctx.ref)}
+	return ctx.newValue(C.JS_NewObject(ctx.ref))
 }
 
 // ToJSValue convert golang object to quickjs.Value
@@ -306,7 +323,10 @@ func (ctx *Context) ParseJson(jsonStr string) Value {
 	jsJsonString := ctx.ToJSValue(jsonStr)
 	defer jsJsonString.Free()
 	JSON := ctx.Globals().Get("JSON")
-	return JSON.Get("parse").CallWithContext(JSON, jsJsonString)
+	defer JSON.Free()
+	parse := JSON.Get("parse")
+	defer parse.Free()
+	return parse.CallWithContext(JSON, jsJsonString)
 }
 
 // NewPromise shortcut for creating a new promise object

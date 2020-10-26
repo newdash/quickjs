@@ -13,6 +13,16 @@ static JSValue ThrowReferenceError(JSContext *ctx, const char *fmt) { return JS_
 static JSValue ThrowRangeError(JSContext *ctx, const char *fmt) { return JS_ThrowRangeError(ctx, "%s", fmt); }
 static JSValue ThrowInternalError(JSContext *ctx, const char *fmt) { return JS_ThrowInternalError(ctx, "%s", fmt); }
 
+static int GetValueRefCount(JSContext *ctx, JSValue v)
+{
+    if (JS_VALUE_HAS_REF_COUNT(v))
+    {
+        JSRefCountHeader *p = (JSRefCountHeader *)JS_VALUE_GET_PTR(v);
+        return p->ref_count;
+    }
+    return 0;
+}
+
 static JS_BOOL JS_IsIntNumber(JSValueConst v)
 {
     int tag = JS_VALUE_GET_TAG(v);

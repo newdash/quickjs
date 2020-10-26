@@ -1,5 +1,14 @@
 package quickjs
 
+/*
+#cgo CFLAGS: -D_GNU_SOURCE
+#cgo CFLAGS: -DCONFIG_BIGNUM
+#cgo CFLAGS: -fno-asynchronous-unwind-tables
+#cgo LDFLAGS: -lm -lpthread
+
+#include "bridge.h"
+*/
+import "C"
 import (
 	"reflect"
 	"unicode"
@@ -23,4 +32,9 @@ func getFieldName(field reflect.StructField) string {
 		return tag
 	}
 	return field.Name
+}
+
+func GetRefCount(ctx *C.JSContext, value C.JSValue) int64 {
+	rt := int64(C.GetValueRefCount(ctx, value))
+	return rt
 }

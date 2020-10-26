@@ -18,13 +18,12 @@ import "C"
 
 // Runtime for quickjs
 type Runtime struct {
-	ref   *C.JSRuntime
-	tasks chan int64
+	ref *C.JSRuntime
 }
 
 // NewRuntime for javascript
 func NewRuntime() Runtime {
-	rt := Runtime{ref: C.JS_NewRuntime(), tasks: make(chan int64)}
+	rt := Runtime{ref: C.JS_NewRuntime()}
 	C.JS_SetCanBlock(rt.ref, C.int(1))
 	return rt
 }
@@ -33,7 +32,9 @@ func NewRuntime() Runtime {
 func (r Runtime) RunGC() { C.JS_RunGC(r.ref) }
 
 // Free runtime, it will raise error when assert failed when something is not free
-func (r Runtime) Free() { C.JS_FreeRuntime(r.ref) }
+func (r Runtime) Free() {
+	C.JS_FreeRuntime(r.ref)
+}
 
 // SetMaxStackSize of Runtime
 func (r Runtime) SetMaxStackSize(stackSize int64) {
@@ -54,7 +55,7 @@ func (r Runtime) NewContext() *Context {
 	C.JS_AddIntrinsicOperators(ref)
 	C.JS_EnableBignumExt(ref, C.int(1))
 
-	ctx := &Context{ref: ref, runtime: &r}
+	ctx := &Context{ref: ref, runtime: &r, objectsRefs: []func(){}}
 
 	return ctx
 }
