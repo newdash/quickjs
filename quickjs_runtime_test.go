@@ -87,6 +87,7 @@ func TestFunctionThrowError(t *testing.T) {
 }
 
 func TestFunction(t *testing.T) {
+	stdruntime.LockOSThread()
 	runtime := NewRuntime()
 	defer runtime.Free()
 
