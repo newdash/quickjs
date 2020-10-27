@@ -141,3 +141,31 @@ func TestContext_WithTypeScript(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal("let x = 'string';", strings.TrimSpace(compiled))
 }
+
+func TestContext_WithGoRoutineCall(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
+	n := 10
+
+	assert := assert.New(t)
+	r := NewRuntime()
+	defer r.Free()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	param := make(chan int, 1)
+
+	fAdd := ctx.ToJSValue(func(v1, v2 int64) int64 { return v1 + v2 })
+	ctx.Globals().SetGoValue("fAdd", fAdd)
+
+	for idx := 1; idx <= n; idx++ {
+		go func(i int) {
+			param <- i
+		}(idx)
+	}
+
+	for idx := 1; idx <= n; idx++ {
+		idx := <-param
+		assert.Equal(int64(idx+1), fAdd.DynamicCall(idx, 1).InterfaceAndFree())
+	}
+
+}
