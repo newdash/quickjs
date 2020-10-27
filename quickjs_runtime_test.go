@@ -11,7 +11,8 @@ import (
 )
 
 func TestObject(t *testing.T) {
-	stdruntime.UnlockOSThread()
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 
 	runtime := NewRuntime()
 	defer runtime.Free()
@@ -58,6 +59,8 @@ func TestArray(t *testing.T) {
 }
 
 func TestBadSyntax(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	runtime := NewRuntime()
 	defer runtime.Free()
 
@@ -69,6 +72,8 @@ func TestBadSyntax(t *testing.T) {
 }
 
 func TestFunctionThrowError(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	expected := errors.New("expected error")
 
 	runtime := NewRuntime()
@@ -88,6 +93,7 @@ func TestFunctionThrowError(t *testing.T) {
 
 func TestFunction(t *testing.T) {
 	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	runtime := NewRuntime()
 	defer runtime.Free()
 
@@ -178,6 +184,8 @@ func TestConcurrency(t *testing.T) {
 }
 
 func TestContext_CreateObjectWithPrimitive(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 
 	r := NewRuntime()
@@ -199,8 +207,8 @@ func TestContext_CreateObjectWithPrimitive(t *testing.T) {
 }
 
 func TestContext_GlobalsGet(t *testing.T) {
-	stdruntime.UnlockOSThread()
-
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 	r := NewRuntime()
 	defer r.RunGC()
@@ -239,6 +247,8 @@ func TestValue_PropertyNames(t *testing.T) {
 }
 
 func TestValue_InterfaceObject(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 
 	r := NewRuntime()
@@ -264,6 +274,8 @@ type DecodeStructBase struct {
 }
 
 func TestValue_Decode(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 
 	r := NewRuntime()
