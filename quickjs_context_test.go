@@ -8,6 +8,7 @@ import (
 
 func TestContext_CreateObjectWithMap(t *testing.T) {
 	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 
 	assert := assert.New(t)
 	r := NewRuntime()
@@ -27,6 +28,8 @@ type TestStruct struct {
 }
 
 func TestContext_CreateObjectWithStruct(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 
 	r := NewRuntime()
@@ -46,6 +49,8 @@ func TestContext_CreateObjectWithStruct(t *testing.T) {
 }
 
 func TestContext_ParseJson(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 	r := NewRuntime()
 	defer r.RunGC()
@@ -67,6 +72,8 @@ func (s DemoObject) Add(v1, v2 int64) int64 {
 
 func TestContext_ToJSValueWithFunc(t *testing.T) {
 	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
+
 	assert := assert.New(t)
 	r := NewRuntime()
 	defer r.Free()
@@ -92,6 +99,8 @@ type DemoObject2 struct {
 
 func TestContext_ToJSValueWithPrivateField(t *testing.T) {
 	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
+
 	assert := assert.New(t)
 	r := NewRuntime()
 	defer r.Free()

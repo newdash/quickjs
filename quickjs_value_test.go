@@ -8,6 +8,8 @@ import (
 )
 
 func TestValue_ToJSONString(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 	r := NewRuntime()
 	defer r.Free()
@@ -21,6 +23,8 @@ func TestValue_ToJSONString(t *testing.T) {
 }
 
 func TestValue_ToJSONStringDeep(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 	r := NewRuntime()
 	defer r.Free()
@@ -34,6 +38,8 @@ func TestValue_ToJSONStringDeep(t *testing.T) {
 }
 
 func TestContext_CallFunction(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 
 	r := NewRuntime()
@@ -58,6 +64,8 @@ func TestContext_CallFunction(t *testing.T) {
 }
 
 func TestContext_DynaCallFunction(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 
 	r := NewRuntime()
@@ -76,6 +84,8 @@ func TestContext_DynaCallFunction(t *testing.T) {
 }
 
 func TestContext_CallFunctionWithoutArgs(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 
 	r := NewRuntime()
@@ -95,6 +105,8 @@ func TestContext_CallFunctionWithoutArgs(t *testing.T) {
 }
 
 func TestContext_VerifyFunctionArgs(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 
 	r := NewRuntime()
@@ -213,6 +225,8 @@ func TestValue_CallWithArgs(t *testing.T) {
 }
 
 func TestValue_CallInner(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 	called := false
 	r := NewRuntime()
@@ -239,6 +253,9 @@ func TestValue_CallInner(t *testing.T) {
 }
 
 func TestValue_StringWithChinese(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
+
 	assert := assert.New(t)
 
 	r := NewRuntime()
@@ -258,8 +275,10 @@ func TestValue_StringWithChinese(t *testing.T) {
 }
 
 func TestValue_New(t *testing.T) {
-	assert := assert.New(t)
 	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
+
+	assert := assert.New(t)
 
 	r := NewRuntime()
 	defer r.Free()
@@ -287,8 +306,10 @@ type ReflectValueTestStruct struct {
 }
 
 func TestValue_ToReflectValue(t *testing.T) {
-	assert := assert.New(t)
 	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
+
+	assert := assert.New(t)
 
 	r := NewRuntime()
 	defer r.Free()
@@ -317,8 +338,10 @@ func TestValue_ToReflectValue(t *testing.T) {
 }
 
 func TestValue_InterfaceAndFree(t *testing.T) {
-	assert := assert.New(t)
 	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
+
+	assert := assert.New(t)
 
 	r := NewRuntime()
 	defer r.Free()
@@ -335,8 +358,10 @@ func TestValue_InterfaceAndFree(t *testing.T) {
 }
 
 func TestValue_IsX(t *testing.T) {
-	assert := assert.New(t)
 	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
+
+	assert := assert.New(t)
 
 	r := NewRuntime()
 	defer r.Free()

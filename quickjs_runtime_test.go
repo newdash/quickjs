@@ -33,6 +33,8 @@ func TestObject(t *testing.T) {
 }
 
 func TestArray(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	runtime := NewRuntime()
 	defer runtime.Free()
 
