@@ -66,16 +66,20 @@ func loadTypeScriptSource(version string) (code string, err error) {
 	var content []byte
 	// jsDelivr is a really awesome CDN
 	url := fmt.Sprintf("https://cdn.jsdelivr.net/npm/typescript@%v/lib/typescript.min.js", version)
-	cacheLocation := filepath.Join(os.TempDir(), fmt.Sprintf("%v.ts", md5(url)))
+	cacheLocation := filepath.Join(os.TempDir(), fmt.Sprintf("typescript-%v.ts", version))
 	stat, err := os.Stat(cacheLocation)
 
-	if err == nil && !stat.IsDir() {
+	if err == nil {
+		if stat.IsDir() {
+			err = fmt.Errorf("'%v' is a directory, please remove it firstly", cacheLocation)
+			return
+		}
 		// read from local fs cache
 		content, err = ioutil.ReadFile(cacheLocation)
 		if err != nil {
 			return code, err
 		}
-	} else {
+	} else if os.IsNotExist(err) {
 		// get source from remote
 		res, err := req.Get(url)
 		if err != nil {
@@ -91,9 +95,9 @@ func loadTypeScriptSource(version string) (code string, err error) {
 		}
 		// write back to local cache
 		ioutil.WriteFile(cacheLocation, content, 0644)
+	} else {
+		return
 	}
 
-	code = string(content)
-
-	return
+	return string(content), nil
 }
