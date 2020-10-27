@@ -17,24 +17,32 @@ import (
 )
 
 type Context struct {
-	ref         *C.JSContext
-	globals     *Value
-	proxy       *Value
-	runtime     *Runtime
-	objectsRefs []func()
-	valueRefs   []func()
+	ref               *C.JSContext
+	globals           *Value
+	proxy             *Value
+	runtime           *Runtime
+	typescriptSupport bool
+	typescriptOption  *GoJSObject
+}
+
+func (ctx *Context) WithTypeScript(version string) error {
+
+	source, err := loadTypeScriptSource(version)
+
+	if err != nil {
+		return err
+	}
+
+	if _, err = ctx.EvalGlobal(source); err != nil {
+		return err
+	}
+
+	ctx.typescriptSupport = true
+
+	return nil
 }
 
 func (ctx *Context) Free() {
-
-	// free all pointers created by current context
-	for _, free := range ctx.objectsRefs {
-		free()
-	}
-
-	for _, free := range ctx.valueRefs {
-		free()
-	}
 
 	if ctx.proxy != nil {
 		ctx.proxy.Free()
@@ -135,13 +143,57 @@ func (ctx *Context) Atom(v string) Atom {
 func (ctx *Context) eval(code string) Value { return ctx.evalFile(code, "code", 0) }
 
 func (ctx *Context) evalFile(code, filename string, mod int) Value {
-	codePtr := C.CString(code)
+	var realCode string
+
+	if ctx.typescriptSupport {
+		compiledCode, err := ctx.CompileTypeScript(code)
+		if err != nil {
+			return ctx.ThrowInternalError(err.Error())
+		}
+		realCode = compiledCode
+	} else {
+		realCode = code
+	}
+
+	codePtr := C.CString(realCode)
 	defer C.free(unsafe.Pointer(codePtr))
 
 	filenamePtr := C.CString(filename)
 	defer C.free(unsafe.Pointer(filenamePtr))
 
 	return Value{ctx: ctx, ref: C.JS_Eval(ctx.ref, codePtr, C.size_t(len(code)), filenamePtr, C.int(mod))}
+}
+
+func (ctx *Context) CompileTypeScript(code string) (string, error) {
+	if !ctx.typescriptSupport {
+		return "", fmt.Errorf("not support typescript, please invoke quickjs.Context.WithTypescript firstly")
+	}
+
+	ts := ctx.Globals().Get("ts")
+	defer ts.Free()
+	transpileModule := ts.Get("transpileModule")
+	defer transpileModule.Free()
+	if ctx.typescriptOption == nil {
+		moduleKind := ts.Get("ModuleKind")
+		defer moduleKind.Free()
+		scriptTarget := ts.Get("ScriptTarget")
+		defer scriptTarget.Free()
+		targetES2020 := scriptTarget.GetInt64("ES2020")
+		es2015 := moduleKind.GetString("ES2015")
+		ctx.typescriptOption = &GoJSObject{
+			"compilerOptions": GoJSObject{
+				"module": es2015,
+				"target": targetES2020,
+			},
+		}
+	}
+
+	result := transpileModule.DynamicCall(code, *ctx.typescriptOption)
+	defer result.Free()
+	if result.IsException() {
+		return "", ctx.Exception()
+	}
+	return result.GetString("outputText"), nil
 }
 
 func (ctx *Context) EvalModule(code string) (Value, error) { return ctx.EvalFile(code, "code", 1) }

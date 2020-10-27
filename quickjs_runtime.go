@@ -36,7 +36,7 @@ func (r Runtime) Free() {
 	C.JS_FreeRuntime(r.ref)
 }
 
-// SetMaxStackSize of Runtime
+// SetMaxStackSize of Runtime in bytes
 func (r Runtime) SetMaxStackSize(stackSize int64) {
 	C.JS_SetMaxStackSize(r.ref, C.size_t(stackSize))
 }
@@ -55,7 +55,7 @@ func (r Runtime) NewContext() *Context {
 	C.JS_AddIntrinsicOperators(ref)
 	C.JS_EnableBignumExt(ref, C.int(1))
 
-	ctx := &Context{ref: ref, runtime: &r, objectsRefs: []func(){}}
+	ctx := &Context{ref: ref, runtime: &r}
 
 	return ctx
 }

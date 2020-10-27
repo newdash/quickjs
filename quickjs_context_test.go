@@ -3,6 +3,7 @@ package quickjs
 import (
 	"github.com/stretchr/testify/assert"
 	stdruntime "runtime"
+	"strings"
 	"testing"
 )
 
@@ -116,4 +117,27 @@ func TestContext_ToJSValueWithPrivateField(t *testing.T) {
 	a := Demo.Get("a")
 	defer a.Free()
 	assert.True(a.IsUndefined())
+}
+
+func TestContext_WithTypeScript(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
+
+	assert := assert.New(t)
+	r := NewRuntime()
+	defer r.Free()
+	ctx := r.NewContext()
+	defer ctx.Free()
+
+	r.SetMaxStackSize(1024 * 1024)
+	err := ctx.WithTypeScript("4.0.5")
+
+	assert.Nil(err)
+
+	globals := ctx.Globals()
+	assert.True(globals.HasProperty("ts"))
+
+	compiled, err := ctx.CompileTypeScript("let x: string  = 'string'")
+	assert.Nil(err)
+	assert.Equal("let x = 'string';", strings.TrimSpace(compiled))
 }
