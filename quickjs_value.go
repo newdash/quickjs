@@ -38,14 +38,17 @@ const (
 )
 
 type Value struct {
-	ctx *Context
-	ref C.JSValue
+	ctx    *Context
+	ref    C.JSValue
+	global bool // is Global object of Context
 }
 
 func (v Value) Free() {
+
 	if !IsUndefinedOrNull(v.ref) && GetRefCount(v.ctx.ref, v.ref) > 0 {
 		C.JS_FreeValue(v.ctx.ref, v.ref)
 	}
+
 }
 
 func (v Value) Context() *Context { return v.ctx }
@@ -56,11 +59,6 @@ func (v Value) String() string {
 	ptr := C.JS_ToCString(v.ctx.ref, v.ref)
 	defer C.JS_FreeCString(v.ctx.ref, ptr)
 	return C.GoString(ptr)
-}
-
-// Call function without `this`
-func (v Value) Call(args ...Value) Value {
-	return v.CallWithContext(v.ctx.Undefined(), args...)
 }
 
 // New for constructor
@@ -83,6 +81,34 @@ func (v Value) New(args ...Value) Value {
 		ref: C.JS_CallConstructor(v.ctx.ref, v.ref, C.int(len(args)), nil),
 	}
 
+}
+
+// DynamicCall function using go objects without `this`
+func (v Value) DynamicCall(args ...interface{}) Value {
+	return v.DynamicCallWithContext(v.ctx.Undefined(), args...)
+}
+
+// DynamicCallWithContext function using go objects with `this`
+func (v Value) DynamicCallWithContext(goThisArgs interface{}, args ...interface{}) Value {
+	var thisArg Value
+	var jsArgs []Value
+
+	thisArg = v.ctx.ToJSValue(goThisArgs)
+
+	for _, arg := range args {
+		jsArg := v.ctx.ToJSValue(arg)
+		if jsArg != arg {
+			defer jsArg.Free()
+		}
+		jsArgs = append(jsArgs, jsArg)
+	}
+
+	return v.CallWithContext(thisArg, jsArgs...)
+}
+
+// Call function without `this`
+func (v Value) Call(args ...Value) Value {
+	return v.CallWithContext(v.ctx.Undefined(), args...)
 }
 
 // CallWithContext call function with this parameter
@@ -164,6 +190,18 @@ func (v Value) GetByAtom(atom Atom) Value {
 
 func (v Value) GetByUint32(idx uint32) Value {
 	return v.ctx.newValue(C.JS_GetPropertyUint32(v.ctx.ref, v.ref, C.uint32_t(idx)))
+}
+
+func (v Value) GetInt64ByUint32(idx uint32) int64 {
+	nv := v.ctx.newValue(C.JS_GetPropertyUint32(v.ctx.ref, v.ref, C.uint32_t(idx)))
+	defer nv.Free()
+	return nv.Int64()
+}
+
+func (v Value) GetStringByUint32(idx uint32) string {
+	nv := v.ctx.newValue(C.JS_GetPropertyUint32(v.ctx.ref, v.ref, C.uint32_t(idx)))
+	defer nv.Free()
+	return nv.String()
 }
 
 func (v Value) SetByAtom(atom Atom, val Value) {
@@ -279,6 +317,12 @@ func (v Value) Decode(target interface{}) {
 }
 
 // Interface return golang value with correct type (with interface{} any type)
+func (v Value) InterfaceAndFree() interface{} {
+	defer v.Free()
+	return v.Interface()
+}
+
+// Interface return golang value with correct type (with interface{} any type)
 func (v Value) Interface() interface{} {
 	if v.IsNumber() {
 		if v.IsBigInt() {
@@ -312,7 +356,7 @@ func (v Value) Interface() interface{} {
 		var rt []interface{}
 		arrayLen := v.Len()
 		for idx := int64(0); idx < arrayLen; idx++ {
-			rt = append(rt, v.GetByUint32(uint32(idx)).Interface())
+			rt = append(rt, v.GetByUint32(uint32(idx)).InterfaceAndFree())
 		}
 		return rt
 	}
@@ -325,10 +369,17 @@ func (v Value) Interface() interface{} {
 				jsArgs = append(jsArgs, v.ctx.ToJSValue(arg))
 			}
 			result := v.Call(jsArgs...)
+
+			// free all generated js args
+			for _, jsArg := range jsArgs {
+				jsArg.Free()
+			}
+
 			if result.IsException() {
 				return v.ctx.Exception()
 			}
-			return result.Interface()
+
+			return result.InterfaceAndFree()
 		}
 	}
 
@@ -338,9 +389,9 @@ func (v Value) Interface() interface{} {
 		if names, err := v.PropertyNames(); err == nil {
 			for _, name := range names {
 				propertyKey := name.String()
-				propertyValue := v.GetByAtom(name.Atom)
+				propertyValue := v.Get(propertyKey)
 				if !propertyValue.IsUndefined() {
-					rt[propertyKey] = propertyValue.Interface()
+					rt[propertyKey] = propertyValue.InterfaceAndFree()
 				}
 			}
 		}

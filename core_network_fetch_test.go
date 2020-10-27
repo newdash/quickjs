@@ -11,7 +11,7 @@ func TestWebCoreFetch(t *testing.T) {
 	runtime.LockOSThread()
 
 	r := NewRuntime()
-	defer r.RunGC()
+	defer r.Free()
 	ctx := r.NewContext()
 	AttachCoreFeaturesToContext(ctx)
 	defer ctx.Free()

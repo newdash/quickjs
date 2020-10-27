@@ -24,6 +24,11 @@ $ go get github.com/newdash/quickjs
 4. Make new copies of arguments should you want to return them in functions you created.
 5. Make sure to call `runtime.LockOSThread()` to ensure that QuickJS always operates in the exact same thread.
 
+## Free
+
+1. Object/Function on `Global` is no required to free.
+
+
 ## License
 
 `QuickJS` is released under the MIT license.

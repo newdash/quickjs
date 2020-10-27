@@ -18,7 +18,19 @@ func TestValue_ToJSONString(t *testing.T) {
 	defer v.Free()
 	assert.True(v.IsObject())
 	assert.Equal(`{"attachTimerTo":"1"}`, v.ToJsonString())
+}
 
+func TestValue_ToJSONStringDeep(t *testing.T) {
+	assert := assert.New(t)
+	r := NewRuntime()
+	defer r.Free()
+	ctx := r.NewContext()
+	defer ctx.Free()
+
+	v := ctx.ToJSValue(map[string]interface{}{"v1": map[string]int64{"v2": 3}})
+	defer v.Free()
+	assert.True(v.IsObject())
+	assert.Equal(`{"v1":{"v2":3}}`, v.ToJsonString())
 }
 
 func TestContext_CallFunction(t *testing.T) {
@@ -44,6 +56,25 @@ func TestContext_CallFunction(t *testing.T) {
 	result.Free()
 	r.RunGC()
 }
+
+func TestContext_DynaCallFunction(t *testing.T) {
+	assert := assert.New(t)
+
+	r := NewRuntime()
+	defer r.Free()
+	ctx := r.NewContext()
+	defer ctx.Free()
+	f := ctx.Function(func(ctx *Context, this Value, args []Value) Value {
+		return args[0].Dup()
+	})
+	ctx.Globals().Set("f", f)
+	result := f.DynamicCall(4444, 1234)
+	defer result.Free()
+	assert.False(result.IsError())
+	assert.Equal(int64(4444), result.Interface())
+
+}
+
 func TestContext_CallFunctionWithoutArgs(t *testing.T) {
 	assert := assert.New(t)
 
@@ -138,23 +169,28 @@ func TestValue_InterfaceArray(t *testing.T) {
 }
 
 func TestContext_EvalJson(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 
 	r := NewRuntime()
-	defer r.RunGC()
+	defer r.Free()
 	ctx := r.NewContext()
 	defer ctx.Free()
 	v, err := ctx.EvalGlobal("JSON.stringify({attachTimerTo:1,b:2,c:[1,2]})")
+	defer v.Free()
 	assert.Nil(err)
 	assert.True(v.IsString())
 	assert.Equal(`{"attachTimerTo":1,"b":2,"c":[1,2]}`, v.String())
 }
 
 func TestValue_CallWithArgs(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 
 	r := NewRuntime()
-	defer r.RunGC()
+	defer r.Free()
 	ctx := r.NewContext()
 	defer ctx.Free()
 	v := ctx.String("中文")
@@ -162,30 +198,36 @@ func TestValue_CallWithArgs(t *testing.T) {
 	assert.Equal("中文", v.String())
 	ctx.EvalGlobal(`function getArgs() {return arguments}`)
 	getArgsFunc := ctx.Globals().Get("getArgs")
+	defer getArgsFunc.Free()
 	assert.True(getArgsFunc.IsFunction())
-	result := getArgsFunc.Call(ctx.String("v1"), ctx.Int64(12))
+	result := getArgsFunc.DynamicCall("v1", 12)
+	defer result.Free()
 	assert.False(result.IsException())
 	assert.Equal(int64(2), result.Len())
-	assert.Equal("v1", result.GetByUint32(0).String())
-	assert.Equal(int64(12), result.GetByUint32(1).Int64())
+	assert.Equal("v1", result.GetStringByUint32(0))
+	assert.Equal(int64(12), result.GetInt64ByUint32(1))
 }
 
 func TestValue_CallInner(t *testing.T) {
 	assert := assert.New(t)
 	called := false
 	r := NewRuntime()
-	defer r.RunGC()
+	defer r.Free()
 	ctx := r.NewContext()
 	defer ctx.Free()
 	ctx.EvalGlobal(`function runCb(cb,a1) { return cb(a1) }`)
 	runCbFunction := ctx.Globals().Get("runCb")
+	defer runCbFunction.Free()
 	assert.True(runCbFunction.IsFunction())
-
-	result := runCbFunction.Call(ctx.Function(func(ctx *Context, this Value, args []Value) Value {
+	f := ctx.Function(func(ctx *Context, this Value, args []Value) Value {
 		called = true
 		return args[0]
-	}), ctx.String("v1"))
+	})
+	defer f.Free()
 
+	result := runCbFunction.Call(f, ctx.String("v1"))
+
+	defer result.Free()
 	assert.False(result.IsException())
 	assert.True(called)
 	assert.True(result.IsString())
@@ -196,7 +238,7 @@ func TestValue_StringWithChinese(t *testing.T) {
 	assert := assert.New(t)
 
 	r := NewRuntime()
-	defer r.RunGC()
+	defer r.Free()
 	ctx := r.NewContext()
 	defer ctx.Free()
 	v := ctx.String("中文")
@@ -204,8 +246,11 @@ func TestValue_StringWithChinese(t *testing.T) {
 	assert.Equal("中文", v.String())
 	ctx.EvalGlobal(`function fString() {return "中文"}`)
 	jsFunctionFString := ctx.Globals().Get("fString")
+	defer jsFunctionFString.Free()
+	result := jsFunctionFString.Call()
+	defer result.Free()
 	assert.True(jsFunctionFString.IsFunction())
-	assert.Equal("中文", jsFunctionFString.Call().String())
+	assert.Equal("中文", result.String())
 }
 
 func TestValue_New(t *testing.T) {
@@ -242,23 +287,47 @@ func TestValue_ToReflectValue(t *testing.T) {
 	stdruntime.LockOSThread()
 
 	r := NewRuntime()
-	defer r.RunGC()
+	defer r.Free()
 	ctx := r.NewContext()
 	defer ctx.Free()
 
 	Global := ctx.Globals()
 
 	Global.Set("v1", ctx.Int32(42))
-	reflectV1 := Global.Get("v1").ToReflectValue(reflect.TypeOf(int32(42)))
+	v1 := Global.Get("v1")
+	defer v1.Free()
+	reflectV1 := v1.ToReflectValue(reflect.TypeOf(int32(42)))
 	assert.Equal(int32(42), reflectV1.Interface())
 
 	ctx.EvalGlobal("var v2 = {a:1,b:'2'}")
-	reflectV2 := Global.Get("v2").ToReflectValue(reflect.TypeOf(ReflectValueTestStruct{}))
+	v2 := Global.Get("v2")
+	defer v2.Free()
+	reflectV2 := v2.ToReflectValue(reflect.TypeOf(ReflectValueTestStruct{}))
 	assert.Equal(ReflectValueTestStruct{1, "2"}, reflectV2.Interface())
 
 	ctx.EvalGlobal("var v3 = [1,2,3]")
-	reflectV3 := Global.Get("v3").ToReflectValue(reflect.TypeOf([]int32{}))
+	v3 := Global.Get("v3")
+	defer v3.Free()
+	reflectV3 := v3.ToReflectValue(reflect.TypeOf([]int32{}))
 	assert.Equal([]int32{1, 2, 3}, reflectV3.Interface())
+}
+
+func TestValue_InterfaceAndFree(t *testing.T) {
+	assert := assert.New(t)
+	stdruntime.LockOSThread()
+
+	r := NewRuntime()
+	defer r.Free()
+	ctx := r.NewContext()
+	defer ctx.Free()
+
+	ctx.EvalGlobal("function fa() {return {a:{b:123}} }")
+	fa := ctx.Globals().Get("fa")
+	defer fa.Free()
+	assert.True(fa.IsFunction())
+	result := fa.DynamicCall().InterfaceAndFree()
+
+	assert.Equal(map[string]interface{}{"a": map[string]interface{}{"b": int64(123)}}, result)
 }
 
 func TestValue_IsX(t *testing.T) {

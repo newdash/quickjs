@@ -18,7 +18,7 @@ func TestContext_CreateObjectWithMap(t *testing.T) {
 	defer v.Free()
 	assert.True(v.IsObject())
 	assert.True(v.Get("attachTimerTo").IsNumber())
-	assert.Equal(int64(2), v.Get("V").Int64())
+	assert.Equal(int64(2), v.Get("V").InterfaceAndFree())
 }
 
 type TestStruct struct {

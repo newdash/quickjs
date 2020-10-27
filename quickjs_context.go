@@ -121,7 +121,8 @@ func (ctx *Context) String(v string) Value {
 }
 
 func (ctx *Context) newValue(ref C.JSValue) Value {
-	return Value{ctx: ctx, ref: ref}
+	rt := Value{ctx: ctx, ref: ref}
+	return rt
 }
 
 func (ctx *Context) Atom(v string) Atom {
@@ -158,8 +159,9 @@ func (ctx *Context) EvalFile(code, filename string, mod int) (Value, error) {
 func (ctx *Context) Globals() Value {
 	if ctx.globals == nil {
 		ctx.globals = &Value{
-			ctx: ctx,
-			ref: C.JS_GetGlobalObject(ctx.ref),
+			ctx:    ctx,
+			ref:    C.JS_GetGlobalObject(ctx.ref),
+			global: true,
 		}
 	}
 	return *ctx.globals
