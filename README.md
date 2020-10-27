@@ -26,7 +26,14 @@ $ go get github.com/newdash/quickjs
 
 ## Free
 
-1. Object/Function on `Global` is no required to free.
+### Free Safe Functions
+
+1. `Value.Interface` - inner references will be freed
+1. `Value.InterfaceAndFree` - current & inner reference will be freed
+1. `Value.GetString(ByUint32)` - new reference will be freed
+1. `Value.GetInt64(ByUint32)` - new reference will be freed
+1. `Value.GetFloat64(ByUint32)` - new reference will be freed
+1. `Value.DynamicCall(WithContext)` - args references will freed
 
 
 ## License

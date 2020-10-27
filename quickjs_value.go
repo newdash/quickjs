@@ -184,6 +184,24 @@ func (v Value) Get(name string) Value {
 	return v.GetByAtom(nameAtom)
 }
 
+func (v Value) GetString(name string) string {
+	nv := v.Get(name)
+	defer nv.Free()
+	return nv.String()
+}
+
+func (v Value) GetInt64(name string) int64 {
+	nv := v.Get(name)
+	defer nv.Free()
+	return nv.Int64()
+}
+
+func (v Value) GetFloat64(name string) float64 {
+	nv := v.Get(name)
+	defer nv.Free()
+	return nv.Float64()
+}
+
 func (v Value) GetByAtom(atom Atom) Value {
 	return v.ctx.newValue(C.JS_GetProperty(v.ctx.ref, v.ref, atom.ref))
 }
@@ -193,9 +211,15 @@ func (v Value) GetByUint32(idx uint32) Value {
 }
 
 func (v Value) GetInt64ByUint32(idx uint32) int64 {
-	nv := v.ctx.newValue(C.JS_GetPropertyUint32(v.ctx.ref, v.ref, C.uint32_t(idx)))
+	nv := v.GetByUint32(idx)
 	defer nv.Free()
 	return nv.Int64()
+}
+
+func (v Value) GetFloat64ByUint32(idx uint32) float64 {
+	nv := v.GetByUint32(idx)
+	defer nv.Free()
+	return nv.Float64()
 }
 
 func (v Value) GetStringByUint32(idx uint32) string {

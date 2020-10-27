@@ -125,6 +125,8 @@ func TestContext_VerifyFunctionArgs(t *testing.T) {
 }
 
 func TestValue_InterfaceNumber(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 
 	r := NewRuntime()
@@ -154,6 +156,8 @@ func TestValue_InterfaceNumber(t *testing.T) {
 }
 
 func TestValue_InterfaceArray(t *testing.T) {
+	stdruntime.LockOSThread()
+	defer stdruntime.UnlockOSThread()
 	assert := assert.New(t)
 
 	r := NewRuntime()
