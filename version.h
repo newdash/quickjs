@@ -6,6 +6,6 @@
 //#define DUMP_GC_FREE 1
 //#define DUMP_OBJECTS 1
 
-#define CONFIG_VERSION "2020-09-06"
+#define CONFIG_VERSION "2020-11-08"
 
 #endif
